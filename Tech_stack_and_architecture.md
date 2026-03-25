@@ -22,7 +22,7 @@ Used for PDF storage so files are not stored on API containers and can be access
 ### RabbitMQ + Celery
 Used for asynchronous processing. Upload requests return quickly, while PDF parsing, chunking, and embedding generation happen in background workers.
 
-###Qdrant
+### Qdrant
 Used as the vector database for semantic similarity search over paragraph embeddings.
 
 ### sentence-transformers (all-MiniLM-L6-v2)
