@@ -3,6 +3,15 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-api
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
     ports:
       - "8080:8080"
 
