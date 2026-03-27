@@ -2,12 +2,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from db import wait_for_database
+from db import initialize_database, wait_for_database
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     wait_for_database()
+    initialize_database()
     yield
 
 
