@@ -3,9 +3,13 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 import psycopg
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_connection
+
+bearer_scheme = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
@@ -74,3 +78,30 @@ def create_access_token(user_id: int, username: str, expires_in_minutes: int = 6
         "exp": int((now + timedelta(minutes=expires_in_minutes)).timestamp()),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_access_token(token: str) -> dict[str, str]:
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.InvalidTokenError as exc:
+        raise ValueError("Invalid token") from exc
+
+    user_id = payload.get("sub")
+    username = payload.get("username")
+
+    if not isinstance(user_id, str) or not isinstance(username, str):
+        raise ValueError("Invalid token payload")
+
+    return {"id": user_id, "username": username}
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> dict[str, str]:
+    try:
+        return decode_access_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc

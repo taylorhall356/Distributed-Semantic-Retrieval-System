@@ -1,9 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 
-from auth import authenticate_user, create_access_token, create_user
+from auth import authenticate_user, create_access_token, create_user, get_current_user
 from db import initialize_database, wait_for_database
 
 
@@ -38,6 +38,11 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class CurrentUserResponse(BaseModel):
+    id: str
+    username: str
 
 
 @app.get("/health")
@@ -83,3 +88,8 @@ def login(payload: LoginRequest) -> LoginResponse:
         username=str(user["username"]),
     )
     return LoginResponse(access_token=access_token)
+
+
+@app.get("/me", response_model=CurrentUserResponse)
+def get_me(current_user: dict[str, str] = Depends(get_current_user)) -> CurrentUserResponse:
+    return CurrentUserResponse(**current_user)
