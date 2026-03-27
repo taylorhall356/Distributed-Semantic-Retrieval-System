@@ -5,3 +5,18 @@ services:
     container_name: semantic-retrieval-api
     ports:
       - "8080:8080"
+
+  postgres:
+    image: postgres:16
+    container_name: semantic-retrieval-postgres
+    environment:
+      POSTGRES_DB: semantic_retrieval
+      POSTGRES_USER: semantic_user
+      POSTGRES_PASSWORD: semantic_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
