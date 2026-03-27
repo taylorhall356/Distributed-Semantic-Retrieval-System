@@ -1,8 +1,10 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import UploadFile
+from pypdf import PdfReader
 
 from config import DOCUMENTS_DIR
 from db import get_connection
@@ -75,6 +77,89 @@ def list_documents_for_user(user_id: int) -> list[dict[str, str | int | datetime
         }
         for document_id, filename, status, created_at in rows
     ]
+
+
+def extract_pdf_text(object_key: str) -> str:
+    document_path = DOCUMENTS_DIR / object_key
+    reader = PdfReader(str(document_path))
+    page_text = []
+
+    for page in reader.pages:
+        extracted = page.extract_text() or ""
+        if extracted.strip():
+            page_text.append(extracted)
+
+    return "\n\n".join(page_text).strip()
+
+
+def split_text_into_chunks(text: str) -> list[str]:
+    normalized_text = text.replace("\r\n", "\n")
+    paragraphs = re.split(r"\n\s*\n", normalized_text)
+
+    chunks = []
+    for paragraph in paragraphs:
+        lines = [line.strip() for line in paragraph.split("\n") if line.strip()]
+
+        if len(lines) > 1:
+            chunks.extend(lines)
+            continue
+
+        cleaned = " ".join(paragraph.split())
+        if cleaned:
+            chunks.append(cleaned)
+
+    return chunks
+
+
+def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM document_chunks WHERE document_id = %s",
+                (document_id,),
+            )
+
+            for index, chunk in enumerate(chunks):
+                cur.execute(
+                    """
+                    INSERT INTO document_chunks (document_id, user_id, chunk_index, content)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (document_id, user_id, index, chunk),
+                )
+
+
+def update_document_status(document_id: int, status: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE documents
+                SET status = %s
+                WHERE id = %s
+                """,
+                (status, document_id),
+            )
+
+
+def process_document(document_id: int, user_id: int, object_key: str) -> str:
+    try:
+        text = extract_pdf_text(object_key)
+        chunks = split_text_into_chunks(text)
+
+        if not chunks:
+            raise ValueError("No extractable text found in PDF")
+
+        store_document_chunks(
+            document_id=document_id,
+            user_id=user_id,
+            chunks=chunks,
+        )
+        update_document_status(document_id=document_id, status="ready")
+        return "ready"
+    except Exception:
+        update_document_status(document_id=document_id, status="failed")
+        raise
 
 
 def delete_document_for_user(document_id: int, user_id: int) -> bool:

@@ -11,6 +11,7 @@ from documents import (
     delete_document_for_user,
     ensure_documents_directory,
     list_documents_for_user,
+    process_document,
     save_document_file,
     validate_pdf,
 )
@@ -135,6 +136,19 @@ async def upload_document(
         filename=file.filename or "document.pdf",
         object_key=object_key,
     )
+    try:
+        status_value = process_document(
+            document_id=int(document["id"]),
+            user_id=int(current_user["id"]),
+            object_key=object_key,
+        )
+        document["status"] = status_value
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
     return DocumentResponse(**document)
 
 
