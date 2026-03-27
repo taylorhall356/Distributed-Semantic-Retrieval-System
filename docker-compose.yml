@@ -11,6 +11,7 @@ services:
       DB_NAME: semantic_retrieval
       DB_USER: semantic_user
       DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret
     ports:
       - "8080:8080"
 

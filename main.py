@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 
-from auth import create_user
+from auth import authenticate_user, create_access_token, create_user
 from db import initialize_database, wait_for_database
 
 
@@ -30,6 +30,16 @@ class SignupResponse(BaseModel):
     username: str
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
@@ -53,3 +63,23 @@ def signup(payload: SignupRequest) -> SignupResponse:
         ) from exc
 
     return SignupResponse(**user)
+
+
+@app.post("/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest) -> LoginResponse:
+    try:
+        user = authenticate_user(
+            username=payload.username,
+            password=payload.password,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+    access_token = create_access_token(
+        user_id=int(user["id"]),
+        username=str(user["username"]),
+    )
+    return LoginResponse(access_token=access_token)
