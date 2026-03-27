@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -12,3 +13,5 @@ JWT_SECRET = os.getenv(
     "development-secret-key-at-least-32-bytes",
 )
 JWT_ALGORITHM = "HS256"
+
+DOCUMENTS_DIR = Path(os.getenv("DOCUMENTS_DIR", "storage/documents"))

@@ -12,8 +12,11 @@ services:
       DB_USER: semantic_user
       DB_PASSWORD: semantic_password
       JWT_SECRET: development-secret-key-at-least-32-bytes
+      DOCUMENTS_DIR: /app/storage/documents
     ports:
       - "8080:8080"
+    volumes:
+      - documents_data:/app/storage/documents
 
   postgres:
     image: postgres:16
@@ -28,4 +31,5 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
 volumes:
+  documents_data:
   postgres_data:
