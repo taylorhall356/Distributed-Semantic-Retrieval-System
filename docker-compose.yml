@@ -3,6 +3,12 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-api
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
     ports:
       - "8080:8080"
 

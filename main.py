@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 
-
 app = FastAPI(title="Distributed Semantic Retrieval System")
 
 
