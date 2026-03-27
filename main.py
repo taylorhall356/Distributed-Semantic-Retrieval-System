@@ -8,6 +8,7 @@ from auth import authenticate_user, create_access_token, create_user, get_curren
 from db import initialize_database, wait_for_database
 from documents import (
     create_document,
+    delete_document_for_user,
     ensure_documents_directory,
     list_documents_for_user,
     save_document_file,
@@ -143,3 +144,20 @@ def list_documents(
 ) -> list[DocumentResponse]:
     documents = list_documents_for_user(user_id=int(current_user["id"]))
     return [DocumentResponse(**document) for document in documents]
+
+
+@app.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_document(
+    document_id: int,
+    current_user: dict[str, str] = Depends(get_current_user),
+) -> None:
+    deleted = delete_document_for_user(
+        document_id=document_id,
+        user_id=int(current_user["id"]),
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )

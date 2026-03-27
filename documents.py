@@ -75,3 +75,35 @@ def list_documents_for_user(user_id: int) -> list[dict[str, str | int | datetime
         }
         for document_id, filename, status, created_at in rows
     ]
+
+
+def delete_document_for_user(document_id: int, user_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT object_key
+                FROM documents
+                WHERE id = %s AND user_id = %s
+                """,
+                (document_id, user_id),
+            )
+            row = cur.fetchone()
+
+            if row is None:
+                return False
+
+            object_key = row[0]
+
+            cur.execute(
+                """
+                DELETE FROM documents
+                WHERE id = %s AND user_id = %s
+                """,
+                (document_id, user_id),
+            )
+
+    document_path = DOCUMENTS_DIR / object_key
+    document_path.unlink(missing_ok=True)
+
+    return True
