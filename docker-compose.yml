@@ -5,6 +5,7 @@ services:
     container_name: semantic-retrieval-api
     depends_on:
       - postgres
+      - qdrant
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -13,6 +14,10 @@ services:
       DB_PASSWORD: semantic_password
       JWT_SECRET: development-secret-key-at-least-32-bytes
       DOCUMENTS_DIR: /app/storage/documents
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
     ports:
       - "8080:8080"
     volumes:
@@ -30,6 +35,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: semantic-retrieval-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
 volumes:
   documents_data:
   postgres_data:
+  qdrant_data:
