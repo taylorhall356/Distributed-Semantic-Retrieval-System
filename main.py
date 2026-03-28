@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
 from auth import authenticate_user, create_access_token, create_user, get_current_user
@@ -15,7 +15,7 @@ from documents import (
     save_document_file,
     validate_pdf,
 )
-from semantic_search import ensure_qdrant_collection
+from semantic_search import ensure_qdrant_collection, search_document_chunks
 
 
 @asynccontextmanager
@@ -63,6 +63,14 @@ class DocumentResponse(BaseModel):
     filename: str
     status: str
     created_at: datetime
+
+
+class SearchResultResponse(BaseModel):
+    document_id: int
+    filename: str
+    chunk_index: int
+    content: str
+    score: float
 
 
 @app.get("/health")
@@ -178,3 +186,15 @@ def delete_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
+
+
+@app.get("/search", response_model=list[SearchResultResponse])
+def search_documents(
+    q: str = Query(min_length=1),
+    current_user: dict[str, str] = Depends(get_current_user),
+) -> list[SearchResultResponse]:
+    results = search_document_chunks(
+        user_id=int(current_user["id"]),
+        query=q,
+    )
+    return [SearchResultResponse(**result) for result in results]

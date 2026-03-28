@@ -101,3 +101,39 @@ def delete_document_vectors(document_id: int, user_id: int) -> None:
             )
         ),
     )
+
+
+def search_document_chunks(user_id: int, query: str, limit: int = 5) -> list[dict[str, str | int | float]]:
+    model = get_embedding_model()
+    client = get_qdrant_client()
+    query_vector = model.encode(query).tolist()
+
+    response = client.query_points(
+        collection_name=QDRANT_COLLECTION,
+        query=query_vector,
+        query_filter=qdrant_models.Filter(
+            must=[
+                qdrant_models.FieldCondition(
+                    key="user_id",
+                    match=qdrant_models.MatchValue(value=user_id),
+                )
+            ]
+        ),
+        limit=limit,
+        with_payload=True,
+    )
+
+    results = []
+    for point in response.points:
+        payload = point.payload or {}
+        results.append(
+            {
+                "document_id": int(payload["document_id"]),
+                "filename": str(payload["filename"]),
+                "chunk_index": int(payload["chunk_index"]),
+                "content": str(payload["content"]),
+                "score": float(point.score),
+            }
+        )
+
+    return results
