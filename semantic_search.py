@@ -11,6 +11,7 @@ from config import (
 
 _embedding_model: SentenceTransformer | None = None
 _qdrant_client: QdrantClient | None = None
+UPSERT_BATCH_SIZE = 32
 
 
 def get_embedding_model() -> SentenceTransformer:
@@ -60,26 +61,29 @@ def index_document_chunks(
 
     model = get_embedding_model()
     client = get_qdrant_client()
-    texts = [str(chunk["content"]) for chunk in chunks]
-    vectors = model.encode(texts).tolist()
 
-    points = []
-    for chunk, vector in zip(chunks, vectors):
-        points.append(
-            qdrant_models.PointStruct(
-                id=int(chunk["id"]),
-                vector=vector,
-                payload={
-                    "document_id": document_id,
-                    "user_id": user_id,
-                    "filename": filename,
-                    "chunk_index": int(chunk["chunk_index"]),
-                    "content": str(chunk["content"]),
-                },
+    for start_index in range(0, len(chunks), UPSERT_BATCH_SIZE):
+        batch = chunks[start_index : start_index + UPSERT_BATCH_SIZE]
+        texts = [str(chunk["content"]) for chunk in batch]
+        vectors = model.encode(texts).tolist()
+
+        points = []
+        for chunk, vector in zip(batch, vectors):
+            points.append(
+                qdrant_models.PointStruct(
+                    id=int(chunk["id"]),
+                    vector=vector,
+                    payload={
+                        "document_id": document_id,
+                        "user_id": user_id,
+                        "filename": filename,
+                        "chunk_index": int(chunk["chunk_index"]),
+                        "content": str(chunk["content"]),
+                    },
+                )
             )
-        )
 
-    client.upsert(collection_name=QDRANT_COLLECTION, points=points)
+        client.upsert(collection_name=QDRANT_COLLECTION, points=points)
 
 
 def delete_document_vectors(document_id: int, user_id: int) -> None:

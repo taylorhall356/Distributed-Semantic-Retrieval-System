@@ -1,8 +1,6 @@
 from contextlib import asynccontextmanager
-from datetime import datetime
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel, Field
 
 from auth import authenticate_user, create_access_token, create_user, get_current_user
 from db import initialize_database, wait_for_database
@@ -14,6 +12,15 @@ from documents import (
     process_document,
     save_document_file,
     validate_pdf,
+)
+from schemas import (
+    CurrentUserResponse,
+    DocumentResponse,
+    LoginRequest,
+    LoginResponse,
+    SearchResultResponse,
+    SignupRequest,
+    SignupResponse,
 )
 from semantic_search import ensure_qdrant_collection, search_document_chunks
 
@@ -31,46 +38,6 @@ app = FastAPI(
     title="Distributed Semantic Retrieval System",
     lifespan=lifespan,
 )
-
-
-class SignupRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=8, max_length=128)
-
-
-class SignupResponse(BaseModel):
-    id: int
-    username: str
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class CurrentUserResponse(BaseModel):
-    id: str
-    username: str
-
-
-class DocumentResponse(BaseModel):
-    id: int
-    filename: str
-    status: str
-    created_at: datetime
-
-
-class SearchResultResponse(BaseModel):
-    document_id: int
-    filename: str
-    chunk_index: int
-    content: str
-    score: float
 
 
 @app.get("/health")
