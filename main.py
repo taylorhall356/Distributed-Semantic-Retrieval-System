@@ -1,8 +1,6 @@
 from contextlib import asynccontextmanager
-from datetime import datetime
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
 
 from auth import authenticate_user, create_access_token, create_user, get_current_user
 from db import initialize_database, wait_for_database
@@ -11,9 +9,20 @@ from documents import (
     delete_document_for_user,
     ensure_documents_directory,
     list_documents_for_user,
+    process_document,
     save_document_file,
     validate_pdf,
 )
+from schemas import (
+    CurrentUserResponse,
+    DocumentResponse,
+    LoginRequest,
+    LoginResponse,
+    SearchResultResponse,
+    SignupRequest,
+    SignupResponse,
+)
+from semantic_search import ensure_qdrant_collection, search_document_chunks
 
 
 @asynccontextmanager
@@ -21,6 +30,7 @@ async def lifespan(_: FastAPI):
     wait_for_database()
     initialize_database()
     ensure_documents_directory()
+    ensure_qdrant_collection()
     yield
 
 
@@ -28,38 +38,6 @@ app = FastAPI(
     title="Distributed Semantic Retrieval System",
     lifespan=lifespan,
 )
-
-
-class SignupRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=8, max_length=128)
-
-
-class SignupResponse(BaseModel):
-    id: int
-    username: str
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class CurrentUserResponse(BaseModel):
-    id: str
-    username: str
-
-
-class DocumentResponse(BaseModel):
-    id: int
-    filename: str
-    status: str
-    created_at: datetime
 
 
 @app.get("/health")
@@ -135,6 +113,20 @@ async def upload_document(
         filename=file.filename or "document.pdf",
         object_key=object_key,
     )
+    try:
+        status_value = process_document(
+            document_id=int(document["id"]),
+            user_id=int(current_user["id"]),
+            filename=file.filename or "document.pdf",
+            object_key=object_key,
+        )
+        document["status"] = status_value
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
     return DocumentResponse(**document)
 
 
@@ -161,3 +153,15 @@ def delete_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
+
+
+@app.get("/search", response_model=list[SearchResultResponse])
+def search_documents(
+    q: str = Query(min_length=1),
+    current_user: dict[str, str] = Depends(get_current_user),
+) -> list[SearchResultResponse]:
+    results = search_document_chunks(
+        user_id=int(current_user["id"]),
+        query=q,
+    )
+    return [SearchResultResponse(**result) for result in results]
