@@ -10,6 +10,10 @@ from config import DOCUMENTS_DIR
 from db import get_connection
 from semantic_search import delete_document_vectors, index_document_chunks
 
+MIN_PARAGRAPH_CHARS = 120
+MAX_PARAGRAPH_CHARS = 1200
+SENTENCE_END_RE = re.compile(r"[.!?][\"')\]]?$")
+
 
 def ensure_documents_directory() -> None:
     DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -93,21 +97,91 @@ def extract_pdf_text(object_key: str) -> str:
     return "\n\n".join(page_text).strip()
 
 
-def split_text_into_chunks(text: str) -> list[str]:
-    normalized_text = text.replace("\r\n", "\n")
-    paragraphs = re.split(r"\n\s*\n", normalized_text)
+def is_heading_like(line: str) -> bool:
+    words = line.split()
+    if not words:
+        return False
 
-    chunks = []
-    for paragraph in paragraphs:
-        lines = [line.strip() for line in paragraph.split("\n") if line.strip()]
+    if len(words) <= 8 and not SENTENCE_END_RE.search(line):
+        alpha_words = [word for word in words if any(char.isalpha() for char in word)]
+        title_case_words = [word for word in alpha_words if word[:1].isupper()]
+        if alpha_words and len(title_case_words) >= max(1, len(alpha_words) - 1):
+            return True
 
-        if len(lines) > 1:
-            chunks.extend(lines)
+    return False
+
+
+def split_large_paragraph(paragraph: str) -> list[str]:
+    if len(paragraph) <= MAX_PARAGRAPH_CHARS:
+        return [paragraph]
+
+    sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+    chunks: list[str] = []
+    current_chunk: list[str] = []
+
+    for sentence in sentences:
+        if not sentence:
             continue
 
-        cleaned = " ".join(paragraph.split())
-        if cleaned:
-            chunks.append(cleaned)
+        candidate = " ".join(current_chunk + [sentence]).strip()
+        if current_chunk and len(candidate) > MAX_PARAGRAPH_CHARS:
+            chunks.append(" ".join(current_chunk).strip())
+            current_chunk = [sentence]
+        else:
+            current_chunk.append(sentence)
+
+    if current_chunk:
+        chunks.append(" ".join(current_chunk).strip())
+
+    return chunks
+
+
+def reconstruct_paragraphs(block: str) -> list[str]:
+    lines = [line.strip() for line in block.split("\n") if line.strip()]
+    if not lines:
+        return []
+
+    paragraphs: list[str] = []
+    current_lines: list[str] = []
+
+    for line in lines:
+        if not current_lines:
+            current_lines.append(line)
+            continue
+
+        current_text = " ".join(current_lines).strip()
+        previous_line = current_lines[-1]
+        previous_ended_sentence = bool(SENTENCE_END_RE.search(previous_line))
+        current_is_heading = is_heading_like(line)
+        should_start_new = False
+
+        if current_is_heading and current_text:
+            should_start_new = True
+        elif previous_ended_sentence and len(current_text) >= MIN_PARAGRAPH_CHARS:
+            should_start_new = True
+
+        if should_start_new:
+            paragraphs.append(current_text)
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        paragraphs.append(" ".join(current_lines).strip())
+
+    return paragraphs
+
+
+def split_text_into_chunks(text: str) -> list[str]:
+    normalized_text = text.replace("\r\n", "\n")
+    blocks = re.split(r"\n\s*\n", normalized_text)
+
+    chunks: list[str] = []
+    for block in blocks:
+        for paragraph in reconstruct_paragraphs(block):
+            cleaned = " ".join(paragraph.split())
+            if cleaned:
+                chunks.extend(split_large_paragraph(cleaned))
 
     return chunks
 
