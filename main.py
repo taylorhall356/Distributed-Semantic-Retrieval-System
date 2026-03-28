@@ -15,6 +15,7 @@ from documents import (
     save_document_file,
     validate_pdf,
 )
+from semantic_search import ensure_qdrant_collection
 
 
 @asynccontextmanager
@@ -22,6 +23,7 @@ async def lifespan(_: FastAPI):
     wait_for_database()
     initialize_database()
     ensure_documents_directory()
+    ensure_qdrant_collection()
     yield
 
 
@@ -140,6 +142,7 @@ async def upload_document(
         status_value = process_document(
             document_id=int(document["id"]),
             user_id=int(current_user["id"]),
+            filename=file.filename or "document.pdf",
             object_key=object_key,
         )
         document["status"] = status_value

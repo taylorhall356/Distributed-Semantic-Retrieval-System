@@ -15,3 +15,12 @@ JWT_SECRET = os.getenv(
 JWT_ALGORITHM = "HS256"
 
 DOCUMENTS_DIR = Path(os.getenv("DOCUMENTS_DIR", "storage/documents"))
+
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "document_chunks")
+
+EMBEDDING_MODEL_NAME = os.getenv(
+    "EMBEDDING_MODEL_NAME",
+    "sentence-transformers/all-MiniLM-L6-v2",
+)

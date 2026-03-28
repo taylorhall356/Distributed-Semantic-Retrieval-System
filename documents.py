@@ -8,6 +8,7 @@ from pypdf import PdfReader
 
 from config import DOCUMENTS_DIR
 from db import get_connection
+from semantic_search import delete_document_vectors, index_document_chunks
 
 
 def ensure_documents_directory() -> None:
@@ -111,7 +112,7 @@ def split_text_into_chunks(text: str) -> list[str]:
     return chunks
 
 
-def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> None:
+def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> list[dict[str, str | int]]:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -119,14 +120,26 @@ def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> 
                 (document_id,),
             )
 
+            stored_chunks = []
             for index, chunk in enumerate(chunks):
                 cur.execute(
                     """
                     INSERT INTO document_chunks (document_id, user_id, chunk_index, content)
                     VALUES (%s, %s, %s, %s)
+                    RETURNING id, chunk_index, content
                     """,
                     (document_id, user_id, index, chunk),
                 )
+                chunk_id, chunk_index, content = cur.fetchone()
+                stored_chunks.append(
+                    {
+                        "id": chunk_id,
+                        "chunk_index": chunk_index,
+                        "content": content,
+                    }
+                )
+
+    return stored_chunks
 
 
 def update_document_status(document_id: int, status: str) -> None:
@@ -142,7 +155,7 @@ def update_document_status(document_id: int, status: str) -> None:
             )
 
 
-def process_document(document_id: int, user_id: int, object_key: str) -> str:
+def process_document(document_id: int, user_id: int, filename: str, object_key: str) -> str:
     try:
         text = extract_pdf_text(object_key)
         chunks = split_text_into_chunks(text)
@@ -150,10 +163,16 @@ def process_document(document_id: int, user_id: int, object_key: str) -> str:
         if not chunks:
             raise ValueError("No extractable text found in PDF")
 
-        store_document_chunks(
+        stored_chunks = store_document_chunks(
             document_id=document_id,
             user_id=user_id,
             chunks=chunks,
+        )
+        index_document_chunks(
+            document_id=document_id,
+            user_id=user_id,
+            filename=filename,
+            chunks=stored_chunks,
         )
         update_document_status(document_id=document_id, status="ready")
         return "ready"
@@ -190,5 +209,6 @@ def delete_document_for_user(document_id: int, user_id: int) -> bool:
 
     document_path = DOCUMENTS_DIR / object_key
     document_path.unlink(missing_ok=True)
+    delete_document_vectors(document_id=document_id, user_id=user_id)
 
     return True
