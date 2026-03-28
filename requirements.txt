@@ -4,6 +4,6 @@ python-multipart
 psycopg
 bcrypt
 PyJWT
-pypdf
+docling
 sentence-transformers
 qdrant-client
