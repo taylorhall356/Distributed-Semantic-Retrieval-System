@@ -43,7 +43,17 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: semantic-retrieval-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
 volumes:
   documents_data:
   postgres_data:
   qdrant_data:
+  rabbitmq_data:
