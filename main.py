@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
 
 from auth import authenticate_user, create_access_token, create_user, get_current_user
+from celery_app import enqueue_test_task
+from config import DOCUMENT_PROCESSING_QUEUE
 from db import initialize_database, wait_for_database
 from documents import (
     create_document,
@@ -18,6 +20,7 @@ from schemas import (
     DocumentResponse,
     LoginRequest,
     LoginResponse,
+    QueueTestResponse,
     SearchResultResponse,
     SignupRequest,
     SignupResponse,
@@ -165,3 +168,15 @@ def search_documents(
         query=q,
     )
     return [SearchResultResponse(**result) for result in results]
+
+
+@app.post("/queue-test", response_model=QueueTestResponse, status_code=status.HTTP_202_ACCEPTED)
+def queue_test(
+    current_user: dict[str, str] = Depends(get_current_user),
+) -> QueueTestResponse:
+    task = enqueue_test_task(username=str(current_user["username"]))
+    return QueueTestResponse(
+        task_id=task.id,
+        queue=DOCUMENT_PROCESSING_QUEUE,
+        status="queued",
+    )

@@ -41,3 +41,9 @@ class SearchResultResponse(BaseModel):
     chunk_index: int
     content: str
     score: float
+
+
+class QueueTestResponse(BaseModel):
+    task_id: str
+    queue: str
+    status: str
