@@ -20,3 +20,16 @@ def enqueue_test_task(username: str):
         kwargs={"username": username},
         queue=DOCUMENT_PROCESSING_QUEUE,
     )
+
+
+def enqueue_document_task(document_id: int, user_id: int, filename: str, object_key: str):
+    return celery_app.send_task(
+        "tasks.process_document",
+        kwargs={
+            "document_id": document_id,
+            "user_id": user_id,
+            "filename": filename,
+            "object_key": object_key,
+        },
+        queue=DOCUMENT_PROCESSING_QUEUE,
+    )
