@@ -1,5 +1,7 @@
 from celery_app import celery_app
-from documents import process_document
+from documents import process_document, warm_docling_pipeline
+
+warm_docling_pipeline()
 
 
 @celery_app.task(name="tasks.ping")
