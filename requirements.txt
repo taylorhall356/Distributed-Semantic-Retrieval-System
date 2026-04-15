@@ -4,6 +4,7 @@ python-multipart
 psycopg
 bcrypt
 PyJWT
+celery
 docling
 sentence-transformers
 qdrant-client
