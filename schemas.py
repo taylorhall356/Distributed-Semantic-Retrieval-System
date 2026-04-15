@@ -9,8 +9,8 @@ class SignupRequest(BaseModel):
 
 
 class SignupResponse(BaseModel):
-    id: int
-    username: str
+    message: str = "User created successfully"
+    user_id: int
 
 
 class LoginRequest(BaseModel):
@@ -19,8 +19,8 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    token: str
+    user_id: int
 
 
 class CurrentUserResponse(BaseModel):
@@ -29,18 +29,18 @@ class CurrentUserResponse(BaseModel):
 
 
 class DocumentResponse(BaseModel):
-    id: int
+    document_id: int
     filename: str
+    upload_date: datetime
     status: str
-    created_at: datetime
+    page_count: int | None = None
 
 
 class SearchResultResponse(BaseModel):
+    text: str
+    score: float
     document_id: int
     filename: str
-    chunk_index: int
-    content: str
-    score: float
 
 
 class QueueTestResponse(BaseModel):
