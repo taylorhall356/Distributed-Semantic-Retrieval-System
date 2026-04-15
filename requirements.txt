@@ -8,3 +8,4 @@ celery
 docling
 sentence-transformers
 qdrant-client
+minio

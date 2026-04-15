@@ -7,6 +7,7 @@ services:
       - postgres
       - qdrant
       - rabbitmq
+      - minio
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -14,7 +15,12 @@ services:
       DB_USER: semantic_user
       DB_PASSWORD: semantic_password
       JWT_SECRET: development-secret-key-at-least-32-bytes
-      DOCUMENTS_DIR: /app/storage/documents
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
       RABBITMQ_USER: guest
@@ -26,8 +32,6 @@ services:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
     ports:
       - "8080:8080"
-    volumes:
-      - documents_data:/app/storage/documents
 
   worker:
     build:
@@ -38,6 +42,7 @@ services:
       - postgres
       - qdrant
       - rabbitmq
+      - minio
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -45,7 +50,12 @@ services:
       DB_USER: semantic_user
       DB_PASSWORD: semantic_password
       JWT_SECRET: development-secret-key-at-least-32-bytes
-      DOCUMENTS_DIR: /app/storage/documents
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
       RABBITMQ_USER: guest
@@ -55,8 +65,6 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
-    volumes:
-      - documents_data:/app/storage/documents
 
   postgres:
     image: postgres:16
@@ -87,8 +95,21 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  minio:
+    image: minio/minio:latest
+    container_name: semantic-retrieval-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
 volumes:
-  documents_data:
   postgres_data:
   qdrant_data:
   rabbitmq_data:
+  minio_data:
