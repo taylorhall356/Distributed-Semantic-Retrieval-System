@@ -63,7 +63,7 @@ def signup(payload: SignupRequest) -> SignupResponse:
             detail=str(exc),
         ) from exc
 
-    return SignupResponse(message="User created successfully", user_id=int(user["id"]))
+    return SignupResponse(**user)
 
 
 @app.post("/auth/login", response_model=LoginResponse)
@@ -83,7 +83,7 @@ def login(payload: LoginRequest) -> LoginResponse:
         user_id=int(user["id"]),
         username=str(user["username"]),
     )
-    return LoginResponse(token=access_token, user_id=int(user["id"]))
+    return LoginResponse(access_token=access_token)
 
 
 @app.get("/me", response_model=CurrentUserResponse)
@@ -122,13 +122,7 @@ async def upload_document(
         object_key=object_key,
     )
 
-    return DocumentResponse(
-        document_id=int(document["id"]),
-        filename=document["filename"],
-        upload_date=document["created_at"],
-        status=document["status"],
-        page_count=None,
-    )
+    return DocumentResponse(**document)
 
 
 @app.get("/documents", response_model=list[DocumentResponse])
@@ -136,16 +130,7 @@ def list_documents(
     current_user: dict[str, str] = Depends(get_current_user),
 ) -> list[DocumentResponse]:
     documents = list_documents_for_user(user_id=int(current_user["id"]))
-    return [
-        DocumentResponse(
-            document_id=doc["id"],
-            filename=doc["filename"],
-            upload_date=doc["created_at"],
-            status=doc["status"],
-            page_count=None,
-        )
-        for doc in documents
-    ]
+    return [DocumentResponse(**document) for document in documents]
 
 
 @app.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -174,15 +159,7 @@ def search_documents(
         user_id=int(current_user["id"]),
         query=q,
     )
-    return [
-        SearchResultResponse(
-            text=result["content"],
-            score=result["score"],
-            document_id=result["document_id"],
-            filename=result["filename"],
-        )
-        for result in results
-    ]
+    return [SearchResultResponse(**result) for result in results]
 
 
 @app.post("/queue-test", response_model=QueueTestResponse, status_code=status.HTTP_202_ACCEPTED)
