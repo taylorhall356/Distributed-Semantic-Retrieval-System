@@ -82,6 +82,7 @@ def create_document(user_id: int, filename: str, object_key: str) -> dict[str, s
                 (user_id, filename, object_key, "processing"),
             )
             document_id, stored_filename, status, created_at = cur.fetchone()
+        conn.commit()
 
     return {
         "id": document_id,
@@ -519,6 +520,7 @@ def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> 
                         "content": content,
                     }
                 )
+        conn.commit()
 
     return stored_chunks
 
@@ -534,6 +536,7 @@ def update_document_status(document_id: int, status: str) -> None:
                 """,
                 (status, document_id),
             )
+        conn.commit()
 
 
 def process_document(document_id: int, user_id: int, filename: str, object_key: str) -> str:
@@ -587,6 +590,7 @@ def delete_document_for_user(document_id: int, user_id: int) -> bool:
                 """,
                 (document_id, user_id),
             )
+        conn.commit()
 
     delete_document_file(object_key)
     delete_document_vectors(document_id=document_id, user_id=user_id)
