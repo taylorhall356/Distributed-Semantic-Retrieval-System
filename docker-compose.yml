@@ -33,7 +33,7 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-worker
-    command: celery -A tasks worker --loglevel=info --concurrency=1
+    command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
       - postgres
       - qdrant

@@ -23,6 +23,7 @@ MAJOR_SECTION_RE = re.compile(
     r"^(Introduction and Background|Methodology|Research Findings and Evidence|Policy Recommendations|Risk Mitigation Plan|Conclusion)$",
     re.IGNORECASE,
 )
+LIST_MARKER_RE = re.compile(r"(?:^|\s)[a-zA-Z]\)")
 _docling_converter: DocumentConverter | None = None
 _docling_warmed = False
 DOCLING_WARMUP_PDF_BYTES = b"""%PDF-1.1
@@ -407,7 +408,7 @@ def should_skip_chunk(text: str) -> bool:
     if len(text) < MIN_INDEXABLE_CHARS:
         if is_heading_like(text):
             return True
-        if not SENTENCE_END_RE.search(text):
+        if not SENTENCE_END_RE.search(text) and not is_short_indexable_text(text):
             return True
 
     if is_probable_front_matter(text):
@@ -417,6 +418,21 @@ def should_skip_chunk(text: str) -> bool:
         return True
 
     return False
+
+
+def is_short_indexable_text(text: str) -> bool:
+    words = text.split()
+    if len(text) < 40 or len(words) < 6:
+        return False
+
+    alpha_words = sum(1 for word in words if any(char.isalpha() for char in word))
+    if alpha_words < 4:
+        return False
+
+    list_marker_count = len(LIST_MARKER_RE.findall(text))
+    has_technical_structure = any(marker in text for marker in ("=", ":", ";"))
+
+    return list_marker_count >= 2 or has_technical_structure
 
 
 def is_probable_front_matter(text: str) -> bool:
