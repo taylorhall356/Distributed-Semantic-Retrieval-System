@@ -48,3 +48,7 @@ EMBEDDING_MODEL_NAME = os.getenv(
     "EMBEDDING_MODEL_NAME",
     "sentence-transformers/all-MiniLM-L6-v2",
 )
+
+DOCUMENT_PROCESSING_STALE_SECONDS = int(
+    os.getenv("DOCUMENT_PROCESSING_STALE_SECONDS", "900")
+)

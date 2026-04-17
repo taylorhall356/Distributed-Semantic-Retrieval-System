@@ -32,7 +32,9 @@ class DocumentResponse(BaseModel):
     id: int
     filename: str
     status: str
+    error_message: str | None = None
     created_at: datetime
+    updated_at: datetime
 
 
 class SearchResultResponse(BaseModel):

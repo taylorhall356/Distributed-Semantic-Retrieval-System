@@ -11,8 +11,16 @@ CREATE TABLE IF NOT EXISTS documents (
     filename TEXT NOT NULL,
     object_key TEXT NOT NULL,
     status TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE documents
+    ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+ALTER TABLE documents
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE TABLE IF NOT EXISTS document_chunks (
     id BIGSERIAL PRIMARY KEY,
