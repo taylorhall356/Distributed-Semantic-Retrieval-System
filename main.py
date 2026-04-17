@@ -9,9 +9,7 @@ from db import initialize_database, wait_for_database
 from documents import (
     create_document,
     delete_document_for_user,
-    ensure_documents_directory,
     list_documents_for_user,
-    save_document_file,
     validate_pdf,
 )
 from schemas import (
@@ -25,13 +23,14 @@ from schemas import (
     SignupResponse,
 )
 from semantic_search import ensure_qdrant_collection, search_document_chunks
+from storage import ensure_storage_ready, save_document_file
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     wait_for_database()
     initialize_database()
-    ensure_documents_directory()
+    ensure_storage_ready()
     ensure_qdrant_collection()
     yield
 

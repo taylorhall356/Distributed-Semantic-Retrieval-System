@@ -3,16 +3,15 @@ import re
 from tempfile import NamedTemporaryFile
 from datetime import datetime
 from pathlib import Path
-from uuid import uuid4
 
 from fastapi import UploadFile
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
-from config import DOCUMENTS_DIR
 from db import get_connection
 from semantic_search import delete_document_vectors, index_document_chunks
+from storage import delete_document_file, read_document_bytes
 
 MAX_PARAGRAPH_CHARS = 1200
 MIN_INDEXABLE_CHARS = 80
@@ -63,29 +62,12 @@ startxref
 408
 %%EOF
 """
-
-
-def ensure_documents_directory() -> None:
-    DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
-
-
 def validate_pdf(file: UploadFile) -> None:
     is_pdf_content_type = file.content_type == "application/pdf"
     has_pdf_extension = file.filename is not None and file.filename.lower().endswith(".pdf")
 
     if not (is_pdf_content_type or has_pdf_extension):
         raise ValueError("Only PDF files are supported")
-
-
-async def save_document_file(file: UploadFile) -> str:
-    suffix = Path(file.filename or "document.pdf").suffix or ".pdf"
-    object_key = f"{uuid4()}{suffix}"
-    destination = DOCUMENTS_DIR / object_key
-
-    file_bytes = await file.read()
-    destination.write_bytes(file_bytes)
-
-    return object_key
 
 
 def create_document(user_id: int, filename: str, object_key: str) -> dict[str, str | int | datetime]:
@@ -135,8 +117,16 @@ def list_documents_for_user(user_id: int) -> list[dict[str, str | int | datetime
 
 
 def extract_pdf_text(object_key: str) -> str:
-    document_path = DOCUMENTS_DIR / object_key
-    return extract_pdf_text_with_docling(document_path)
+    document_bytes = read_document_bytes(object_key)
+
+    with NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+        temp_file.write(document_bytes)
+        document_path = Path(temp_file.name)
+
+    try:
+        return extract_pdf_text_with_docling(document_path)
+    finally:
+        document_path.unlink(missing_ok=True)
 
 
 def get_docling_converter() -> DocumentConverter:
@@ -598,8 +588,7 @@ def delete_document_for_user(document_id: int, user_id: int) -> bool:
                 (document_id, user_id),
             )
 
-    document_path = DOCUMENTS_DIR / object_key
-    document_path.unlink(missing_ok=True)
+    delete_document_file(object_key)
     delete_document_vectors(document_id=document_id, user_id=user_id)
 
     return True

@@ -2,6 +2,14 @@ import os
 from pathlib import Path
 
 
+def get_bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = os.getenv("DB_NAME", "semantic_retrieval")
@@ -14,7 +22,13 @@ JWT_SECRET = os.getenv(
 )
 JWT_ALGORITHM = "HS256"
 
+STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "filesystem").strip().lower()
 DOCUMENTS_DIR = Path(os.getenv("DOCUMENTS_DIR", "storage/documents"))
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "document-storage")
+MINIO_SECURE = get_bool_env("MINIO_SECURE", False)
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
