@@ -1,7 +1,12 @@
 from celery_app import celery_app
 from documents import process_document, warm_docling_pipeline
 
-warm_docling_pipeline()
+
+# Initialize Docling pipeline after Celery is configured, not at module import time
+@celery_app.on_after_configure.connect
+def setup_docling(sender, **kwargs):
+    """Warm up Docling pipeline after Celery app is configured."""
+    warm_docling_pipeline()
 
 
 @celery_app.task(name="tasks.ping")

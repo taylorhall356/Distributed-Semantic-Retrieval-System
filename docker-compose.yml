@@ -3,6 +3,7 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-api
+    command: uvicorn main:app --host 0.0.0.0 --port 8080
     depends_on:
       - postgres
       - qdrant
@@ -37,7 +38,7 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-worker
-    command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
+    command: celery -A celery_app worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
       - postgres
       - qdrant
@@ -77,6 +78,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
 
   qdrant:
     image: qdrant/qdrant:latest

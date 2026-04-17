@@ -24,7 +24,7 @@ class LoginResponse(BaseModel):
 
 
 class CurrentUserResponse(BaseModel):
-    id: str
+    id: int
     username: str
 
 

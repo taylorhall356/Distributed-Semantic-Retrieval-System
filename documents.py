@@ -66,7 +66,7 @@ def validate_pdf(file: UploadFile) -> None:
     is_pdf_content_type = file.content_type == "application/pdf"
     has_pdf_extension = file.filename is not None and file.filename.lower().endswith(".pdf")
 
-    if not (is_pdf_content_type or has_pdf_extension):
+    if not (is_pdf_content_type and has_pdf_extension):
         raise ValueError("Only PDF files are supported")
 
 
@@ -132,9 +132,6 @@ def extract_pdf_text(object_key: str) -> str:
 
 def get_docling_converter() -> DocumentConverter:
     global _docling_converter
-
-    if DocumentConverter is None:
-        raise RuntimeError("Docling is not installed")
 
     if _docling_converter is None:
         pipeline_options = PdfPipelineOptions()
