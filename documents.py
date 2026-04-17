@@ -75,20 +75,22 @@ def create_document(user_id: int, filename: str, object_key: str) -> dict[str, s
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO documents (user_id, filename, object_key, status)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, filename, status, created_at
+                INSERT INTO documents (user_id, filename, object_key, status, error_message)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, filename, status, error_message, created_at, updated_at
                 """,
-                (user_id, filename, object_key, "processing"),
+                (user_id, filename, object_key, "processing", None),
             )
-            document_id, stored_filename, status, created_at = cur.fetchone()
+            document_id, stored_filename, status, error_message, created_at, updated_at = cur.fetchone()
         conn.commit()
 
     return {
         "id": document_id,
         "filename": stored_filename,
         "status": status,
+        "error_message": error_message,
         "created_at": created_at,
+        "updated_at": updated_at,
     }
 
 
@@ -97,7 +99,7 @@ def list_documents_for_user(user_id: int) -> list[dict[str, str | int | datetime
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, filename, status, created_at
+                SELECT id, filename, status, error_message, created_at, updated_at
                 FROM documents
                 WHERE user_id = %s
                 ORDER BY created_at DESC
@@ -111,10 +113,48 @@ def list_documents_for_user(user_id: int) -> list[dict[str, str | int | datetime
             "id": document_id,
             "filename": filename,
             "status": status,
+            "error_message": error_message,
             "created_at": created_at,
+            "updated_at": updated_at,
         }
-        for document_id, filename, status, created_at in rows
+        for document_id, filename, status, error_message, created_at, updated_at in rows
     ]
+
+
+def get_document_for_user(document_id: int, user_id: int) -> dict[str, str | int | datetime] | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, filename, object_key, status, error_message, created_at, updated_at
+                FROM documents
+                WHERE id = %s AND user_id = %s
+                """,
+                (document_id, user_id),
+            )
+            row = cur.fetchone()
+
+    if row is None:
+        return None
+
+    (
+        stored_document_id,
+        filename,
+        object_key,
+        status,
+        error_message,
+        created_at,
+        updated_at,
+    ) = row
+    return {
+        "id": stored_document_id,
+        "filename": filename,
+        "object_key": object_key,
+        "status": status,
+        "error_message": error_message,
+        "created_at": created_at,
+        "updated_at": updated_at,
+    }
 
 
 def extract_pdf_text(object_key: str) -> str:
@@ -525,18 +565,69 @@ def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> 
     return stored_chunks
 
 
-def update_document_status(document_id: int, status: str) -> None:
+def update_document_status(document_id: int, status: str, error_message: str | None = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 UPDATE documents
-                SET status = %s
+                SET status = %s,
+                    error_message = %s,
+                    updated_at = NOW()
                 WHERE id = %s
                 """,
-                (status, document_id),
+                (status, error_message, document_id),
             )
         conn.commit()
+
+
+def reset_document_for_retry(document_id: int, user_id: int) -> dict[str, str | int | datetime] | None:
+    delete_document_vectors(document_id=document_id, user_id=user_id)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM document_chunks
+                WHERE document_id = %s AND user_id = %s
+                """,
+                (document_id, user_id),
+            )
+            cur.execute(
+                """
+                UPDATE documents
+                SET status = %s,
+                    error_message = NULL,
+                    updated_at = NOW()
+                WHERE id = %s AND user_id = %s AND status = %s
+                RETURNING id, filename, status, error_message, created_at, updated_at, object_key
+                """,
+                ("processing", document_id, user_id, "failed"),
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    if row is None:
+        return None
+
+    (
+        retried_document_id,
+        filename,
+        status,
+        error_message,
+        created_at,
+        updated_at,
+        object_key,
+    ) = row
+    return {
+        "id": retried_document_id,
+        "filename": filename,
+        "status": status,
+        "error_message": error_message,
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "object_key": object_key,
+    }
 
 
 def process_document(document_id: int, user_id: int, filename: str, object_key: str) -> str:
@@ -560,8 +651,8 @@ def process_document(document_id: int, user_id: int, filename: str, object_key: 
         )
         update_document_status(document_id=document_id, status="ready")
         return "ready"
-    except Exception:
-        update_document_status(document_id=document_id, status="failed")
+    except Exception as exc:
+        update_document_status(document_id=document_id, status="failed", error_message=str(exc))
         raise
 
 

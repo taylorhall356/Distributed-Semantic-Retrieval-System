@@ -9,7 +9,9 @@ from db import initialize_database, wait_for_database
 from documents import (
     create_document,
     delete_document_for_user,
+    get_document_for_user,
     list_documents_for_user,
+    reset_document_for_retry,
     validate_pdf,
 )
 from schemas import (
@@ -148,6 +150,47 @@ def delete_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
+
+
+@app.post(
+    "/documents/{document_id}/retry",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def retry_document(
+    document_id: int,
+    current_user: dict[str, str] = Depends(get_current_user),
+) -> DocumentResponse:
+    existing_document = get_document_for_user(
+        document_id=document_id,
+        user_id=int(current_user["id"]),
+    )
+    if existing_document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    document = reset_document_for_retry(
+        document_id=document_id,
+        user_id=int(current_user["id"]),
+    )
+
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only failed documents can be retried",
+        )
+
+    enqueue_document_task(
+        document_id=int(document["id"]),
+        user_id=int(current_user["id"]),
+        filename=str(document["filename"]),
+        object_key=str(document["object_key"]),
+    )
+
+    document.pop("object_key", None)
+    return DocumentResponse(**document)
 
 
 @app.get("/search", response_model=list[SearchResultResponse])
