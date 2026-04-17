@@ -1,7 +1,7 @@
 import html
 import re
 from tempfile import NamedTemporaryFile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -9,6 +9,7 @@ from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
+from config import DOCUMENT_PROCESSING_STALE_SECONDS
 from db import get_connection
 from semantic_search import delete_document_vectors, index_document_chunks
 from storage import delete_document_file, read_document_bytes
@@ -155,6 +156,18 @@ def get_document_for_user(document_id: int, user_id: int) -> dict[str, str | int
         "created_at": created_at,
         "updated_at": updated_at,
     }
+
+
+def is_document_stale(document: dict[str, str | int | datetime]) -> bool:
+    if document["status"] != "processing":
+        return False
+
+    updated_at = document.get("updated_at")
+    if not isinstance(updated_at, datetime):
+        return False
+
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(seconds=DOCUMENT_PROCESSING_STALE_SECONDS)
+    return updated_at <= stale_cutoff
 
 
 def extract_pdf_text(object_key: str) -> str:
@@ -582,6 +595,14 @@ def update_document_status(document_id: int, status: str, error_message: str | N
 
 
 def reset_document_for_retry(document_id: int, user_id: int) -> dict[str, str | int | datetime] | None:
+    document = get_document_for_user(document_id=document_id, user_id=user_id)
+    if document is None:
+        return None
+
+    can_retry = document["status"] == "failed" or is_document_stale(document)
+    if not can_retry:
+        return None
+
     delete_document_vectors(document_id=document_id, user_id=user_id)
 
     with get_connection() as conn:
@@ -599,10 +620,10 @@ def reset_document_for_retry(document_id: int, user_id: int) -> dict[str, str | 
                 SET status = %s,
                     error_message = NULL,
                     updated_at = NOW()
-                WHERE id = %s AND user_id = %s AND status = %s
+                WHERE id = %s AND user_id = %s
                 RETURNING id, filename, status, error_message, created_at, updated_at, object_key
                 """,
-                ("processing", document_id, user_id, "failed"),
+                ("processing", document_id, user_id),
             )
             row = cur.fetchone()
         conn.commit()

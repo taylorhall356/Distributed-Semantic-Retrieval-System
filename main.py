@@ -179,7 +179,7 @@ def retry_document(
     if document is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Only failed documents can be retried",
+            detail="Only failed or stale processing documents can be retried",
         )
 
     enqueue_document_task(
