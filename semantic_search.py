@@ -1,26 +1,16 @@
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
-from sentence_transformers import SentenceTransformer
 
 from config import (
-    EMBEDDING_MODEL_NAME,
+    EMBEDDING_VECTOR_SIZE,
     QDRANT_COLLECTION,
     QDRANT_HOST,
     QDRANT_PORT,
 )
+from embedding_client import embed_text, embed_texts
 
-_embedding_model: SentenceTransformer | None = None
 _qdrant_client: QdrantClient | None = None
 UPSERT_BATCH_SIZE = 32
-
-
-def get_embedding_model() -> SentenceTransformer:
-    global _embedding_model
-
-    if _embedding_model is None:
-        _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-
-    return _embedding_model
 
 
 def get_qdrant_client() -> QdrantClient:
@@ -34,8 +24,6 @@ def get_qdrant_client() -> QdrantClient:
 
 def ensure_qdrant_collection() -> None:
     client = get_qdrant_client()
-    model = get_embedding_model()
-    vector_size = model.get_sentence_embedding_dimension()
 
     existing_collections = client.get_collections().collections
     if any(collection.name == QDRANT_COLLECTION for collection in existing_collections):
@@ -44,7 +32,7 @@ def ensure_qdrant_collection() -> None:
     client.create_collection(
         collection_name=QDRANT_COLLECTION,
         vectors_config=qdrant_models.VectorParams(
-            size=vector_size,
+            size=EMBEDDING_VECTOR_SIZE,
             distance=qdrant_models.Distance.COSINE,
         ),
     )
@@ -59,13 +47,12 @@ def index_document_chunks(
     if not chunks:
         return
 
-    model = get_embedding_model()
     client = get_qdrant_client()
 
     for start_index in range(0, len(chunks), UPSERT_BATCH_SIZE):
         batch = chunks[start_index : start_index + UPSERT_BATCH_SIZE]
         texts = [str(chunk["content"]) for chunk in batch]
-        vectors = model.encode(texts).tolist()
+        vectors = embed_texts(texts)
 
         points = []
         for chunk, vector in zip(batch, vectors):
@@ -108,9 +95,8 @@ def delete_document_vectors(document_id: int, user_id: int) -> None:
 
 
 def search_document_chunks(user_id: int, query: str, limit: int = 5) -> list[dict[str, str | int | float]]:
-    model = get_embedding_model()
     client = get_qdrant_client()
-    query_vector = model.encode(query).tolist()
+    query_vector = embed_text(query)
 
     response = client.query_points(
         collection_name=QDRANT_COLLECTION,

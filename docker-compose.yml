@@ -1,4 +1,18 @@
 services:
+  embedding-service:
+    build:
+      context: .
+    container_name: semantic-retrieval-embedding-service
+    command: uvicorn embedding_service:app --host 0.0.0.0 --port 8090
+    environment:
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
   nginx:
     image: nginx:1.27-alpine
     container_name: semantic-retrieval-nginx
@@ -22,6 +36,7 @@ services:
       context: .
     container_name: semantic-retrieval-api
     depends_on:
+      - embedding-service
       - postgres
       - qdrant
       - rabbitmq
@@ -48,6 +63,8 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
       interval: 10s
@@ -60,6 +77,7 @@ services:
       context: .
     container_name: semantic-retrieval-api-2
     depends_on:
+      - embedding-service
       - postgres
       - qdrant
       - rabbitmq
@@ -86,6 +104,8 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
       interval: 10s
@@ -98,6 +118,7 @@ services:
       context: .
     container_name: semantic-retrieval-api-3
     depends_on:
+      - embedding-service
       - postgres
       - qdrant
       - rabbitmq
@@ -124,6 +145,8 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
       interval: 10s
@@ -137,6 +160,7 @@ services:
     container_name: semantic-retrieval-worker
     command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
+      - embedding-service
       - postgres
       - qdrant
       - rabbitmq
@@ -163,6 +187,8 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
 
   postgres:
     image: postgres:16
