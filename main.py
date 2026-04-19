@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, st
 from auth import authenticate_user, create_access_token, create_user, get_current_user
 from celery_app import enqueue_document_task, enqueue_test_task
 from config import DOCUMENT_PROCESSING_QUEUE
-from db import initialize_database, wait_for_database
+from db import get_connection
 from documents import (
     create_document,
     delete_document_for_user,
@@ -14,6 +14,7 @@ from documents import (
     reset_document_for_retry,
     validate_pdf,
 )
+from embedding_client import EmbeddingServiceError, is_embedding_service_ready
 from schemas import (
     CurrentUserResponse,
     DocumentResponse,
@@ -24,16 +25,12 @@ from schemas import (
     SignupRequest,
     SignupResponse,
 )
-from semantic_search import ensure_qdrant_collection, search_document_chunks
-from storage import ensure_storage_ready, save_document_file
+from semantic_search import is_qdrant_ready, search_document_chunks
+from storage import save_document_file
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    wait_for_database()
-    initialize_database()
-    ensure_storage_ready()
-    ensure_qdrant_collection()
     yield
 
 
@@ -46,6 +43,34 @@ app = FastAPI(
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def is_database_ready() -> bool:
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+    except Exception:
+        return False
+
+    return True
+
+
+@app.get("/ready")
+def readiness_check() -> dict[str, str]:
+    ready = (
+        is_database_ready()
+        and is_qdrant_ready()
+        and is_embedding_service_ready()
+    )
+    if not ready:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service dependencies are not ready",
+        )
+
+    return {"status": "ready"}
 
 
 @app.post(
@@ -198,10 +223,17 @@ def search_documents(
     q: str = Query(min_length=1),
     current_user: dict[str, str] = Depends(get_current_user),
 ) -> list[SearchResultResponse]:
-    results = search_document_chunks(
-        user_id=int(current_user["id"]),
-        query=q,
-    )
+    try:
+        results = search_document_chunks(
+            user_id=int(current_user["id"]),
+            query=q,
+        )
+    except EmbeddingServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
     return [SearchResultResponse(**result) for result in results]
 
 

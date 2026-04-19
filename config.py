@@ -48,6 +48,14 @@ EMBEDDING_MODEL_NAME = os.getenv(
     "EMBEDDING_MODEL_NAME",
     "sentence-transformers/all-MiniLM-L6-v2",
 )
+EMBEDDING_VECTOR_SIZE = int(os.getenv("EMBEDDING_VECTOR_SIZE", "384"))
+EMBEDDING_SERVICE_URL = os.getenv(
+    "EMBEDDING_SERVICE_URL",
+    "http://localhost:8090",
+).rstrip("/")
+EMBEDDING_REQUEST_TIMEOUT_SECONDS = int(
+    os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "120")
+)
 
 DOCUMENT_PROCESSING_STALE_SECONDS = int(
     os.getenv("DOCUMENT_PROCESSING_STALE_SECONDS", "900")
