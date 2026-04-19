@@ -1,4 +1,31 @@
 services:
+  bootstrap:
+    build:
+      context: .
+    container_name: semantic-retrieval-bootstrap
+    command: python bootstrap.py
+    depends_on:
+      - embedding-service
+      - postgres
+      - qdrant
+      - minio
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_VECTOR_SIZE: "384"
+
   embedding-service:
     build:
       context: .
@@ -36,6 +63,7 @@ services:
       context: .
     container_name: semantic-retrieval-api
     depends_on:
+      - bootstrap
       - embedding-service
       - postgres
       - qdrant
@@ -77,6 +105,7 @@ services:
       context: .
     container_name: semantic-retrieval-api-2
     depends_on:
+      - bootstrap
       - embedding-service
       - postgres
       - qdrant
@@ -118,6 +147,7 @@ services:
       context: .
     container_name: semantic-retrieval-api-3
     depends_on:
+      - bootstrap
       - embedding-service
       - postgres
       - qdrant
@@ -160,6 +190,7 @@ services:
     container_name: semantic-retrieval-worker
     command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
+      - bootstrap
       - embedding-service
       - postgres
       - qdrant

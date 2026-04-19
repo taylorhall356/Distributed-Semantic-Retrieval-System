@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, st
 from auth import authenticate_user, create_access_token, create_user, get_current_user
 from celery_app import enqueue_document_task, enqueue_test_task
 from config import DOCUMENT_PROCESSING_QUEUE
-from db import get_connection, initialize_database, wait_for_database
+from db import get_connection
 from documents import (
     create_document,
     delete_document_for_user,
@@ -25,16 +25,12 @@ from schemas import (
     SignupRequest,
     SignupResponse,
 )
-from semantic_search import ensure_qdrant_collection, is_qdrant_ready, search_document_chunks
-from storage import ensure_storage_ready, save_document_file
+from semantic_search import is_qdrant_ready, search_document_chunks
+from storage import save_document_file
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    wait_for_database()
-    initialize_database()
-    ensure_storage_ready()
-    ensure_qdrant_collection()
     yield
 
 
