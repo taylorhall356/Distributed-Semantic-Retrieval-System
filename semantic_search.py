@@ -38,6 +38,15 @@ def ensure_qdrant_collection() -> None:
     )
 
 
+def is_qdrant_ready() -> bool:
+    try:
+        get_qdrant_client().get_collections()
+    except Exception:
+        return False
+
+    return True
+
+
 def index_document_chunks(
     document_id: int,
     user_id: int,

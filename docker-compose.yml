@@ -7,7 +7,7 @@ services:
     environment:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/ready', timeout=3).read()"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -25,7 +25,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ready >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -66,7 +66,7 @@ services:
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -107,7 +107,7 @@ services:
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -148,7 +148,7 @@ services:
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
       interval: 10s
       timeout: 5s
       retries: 3
