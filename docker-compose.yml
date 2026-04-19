@@ -1,4 +1,22 @@
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: semantic-retrieval-nginx
+    depends_on:
+      - api
+      - api2
+      - api3
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
   api:
     build:
       context: .
@@ -30,8 +48,88 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
-    ports:
-      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+  api2:
+    build:
+      context: .
+    container_name: semantic-retrieval-api-2
+    depends_on:
+      - postgres
+      - qdrant
+      - rabbitmq
+      - minio
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+  api3:
+    build:
+      context: .
+    container_name: semantic-retrieval-api-3
+    depends_on:
+      - postgres
+      - qdrant
+      - rabbitmq
+      - minio
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
 
   worker:
     build:
