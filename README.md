@@ -11,7 +11,7 @@ This project is a semantic search system for PDF documents. Users can sign up, u
 - Redis for query embedding cache
 - Qdrant for vector search
 - MinIO for object storage
-- Eight parsing workers and two embedding workers
+- Ten parsing workers and two embedding workers
 - Three embedding-service replicas behind an internal router
 - Nginx reverse proxy on `http://localhost:8080`
 
@@ -54,10 +54,11 @@ Then use `http://localhost:18080` for manual testing on that shared host. Keep t
 
 ## First Run Notes
 
-- The first build is the slowest because the image installs Python dependencies and preloads model assets used by Docling and the embedding service.
+- The first build is the slowest because the image installs Python dependencies and embedding service assets.
 - Later restarts are much faster because the Docker image layers and named volumes are reused.
 - No local Python environment, database, or filesystem path setup is required.
 - The runtime images are split by role so parsing, embedding, and API services can scale independently while keeping builds deterministic.
+- The default parsing backend is `pymupdf_blocks`, which avoids the heavy Docling warmup path for normal PDF ingestion.
 
 ## Common Commands
 
@@ -136,7 +137,7 @@ curl -G http://localhost:8080/search \
 
 - `nginx` exposes the public API on port `8080`
 - `api` through `api5` run the FastAPI application behind nginx
-- `worker` through `worker8` process PDF parsing tasks
+- `worker` through `worker10` process PDF parsing tasks
 - `embedding-worker` and `embedding-worker2` handle embedding/indexing tasks
 - `embedding-service`, `embedding-service2`, and `embedding-service3` serve embeddings behind `embedding-router`
 
@@ -155,7 +156,8 @@ If you need to change the public port, update `NGINX_HOST_PORT` in `.env`.
 
 This branch is tuned for higher throughput rather than the smallest possible footprint:
 
-- parsing workers default to `PARSE_WORKER_CONCURRENCY=1` so Docling-heavy jobs do not overcommit CPU/RAM per container
+- parsing workers default to `PARSE_WORKER_CONCURRENCY=1` so PDF parsing jobs do not overcommit CPU/RAM per container
 - embedding workers default to `EMBEDDING_WORKER_CONCURRENCY=2`
 - Celery uses `worker_prefetch_multiplier=1` so long-running parse tasks are distributed more evenly
 - the app points to `embedding-router`, which load-balances across three embedding-service replicas
+- `PDF_EXTRACTOR_BACKEND` defaults to `pymupdf_blocks`; set it to `docling` only if you explicitly want the older parser path

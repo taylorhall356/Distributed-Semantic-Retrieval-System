@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import UploadFile
 
-from config import DOCUMENT_PROCESSING_STALE_SECONDS
+from config import DOCUMENT_PROCESSING_STALE_SECONDS, PDF_EXTRACTOR_BACKEND
 from db import get_connection
 from semantic_search import delete_document_vectors, index_document_chunks
 from storage import delete_document_file, read_document_bytes
@@ -16,6 +16,8 @@ from celery_app import enqueue_document_embedding_task
 
 MAX_PARAGRAPH_CHARS = 1200
 MIN_INDEXABLE_CHARS = 80
+MIN_PYMUPDF_WORDS = 8
+MAX_PYMUPDF_NON_ALPHA_RATIO = 0.35
 SENTENCE_END_RE = re.compile(r"[.!?][\"')\]]?$")
 STUDENT_ID_RE = re.compile(r"\bV\d{6,}\b")
 DATE_RE = re.compile(r"^(January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}$")
@@ -204,6 +206,8 @@ def extract_pdf_text(object_key: str) -> str:
         document_path = Path(temp_file.name)
 
     try:
+        if PDF_EXTRACTOR_BACKEND == "pymupdf_blocks":
+            return extract_pdf_text_with_pymupdf(document_path)
         return extract_pdf_text_with_docling(document_path)
     finally:
         document_path.unlink(missing_ok=True)
@@ -265,6 +269,58 @@ def extract_pdf_text_with_docling(document_path: Path) -> str:
     converter = get_docling_converter()
     result = converter.convert(str(document_path))
     return result.document.export_to_markdown().strip()
+
+
+def extract_pdf_text_with_pymupdf(document_path: Path) -> str:
+    import fitz
+
+    paragraphs: list[str] = []
+
+    with fitz.open(document_path) as document:
+        for page in document:
+            for block in page.get_text("blocks"):
+                if len(block) < 5:
+                    continue
+
+                raw_text = str(block[4])
+                cleaned_text = clean_pymupdf_paragraph_text(raw_text)
+                if not is_valid_pymupdf_paragraph(cleaned_text):
+                    continue
+
+                paragraphs.extend(split_large_paragraph(cleaned_text))
+
+    return "\n\n".join(paragraphs)
+
+
+def clean_pymupdf_paragraph_text(text: str) -> str:
+    return clean_text(text.replace("\n", " "))
+
+
+def is_valid_pymupdf_paragraph(text: str) -> bool:
+    if not text:
+        return False
+
+    if len(text) < MIN_INDEXABLE_CHARS:
+        return False
+
+    if len(text.split()) < MIN_PYMUPDF_WORDS:
+        return False
+
+    if text.isupper():
+        return False
+
+    if should_skip_chunk(text):
+        return False
+
+    non_space_chars = [char for char in text if not char.isspace()]
+    if not non_space_chars:
+        return False
+
+    alpha_chars = sum(char.isalpha() for char in non_space_chars)
+    non_alpha_chars = len(non_space_chars) - alpha_chars
+    non_alpha_ratio = non_alpha_chars / len(non_space_chars)
+
+    return non_alpha_ratio <= MAX_PYMUPDF_NON_ALPHA_RATIO
 
 
 def normalize_markdown_line(line: str) -> str:
@@ -719,9 +775,14 @@ def parse_document_and_enqueue_embedding(
     object_key: str,
 ) -> str:
     try:
-        warm_docling_pipeline()
+        if PDF_EXTRACTOR_BACKEND != "pymupdf_blocks":
+            warm_docling_pipeline()
+
         text = extract_pdf_text(object_key)
-        chunks = split_docling_markdown_into_chunks(text)
+        if PDF_EXTRACTOR_BACKEND == "pymupdf_blocks":
+            chunks = [chunk.strip() for chunk in text.split("\n\n") if chunk.strip()]
+        else:
+            chunks = split_docling_markdown_into_chunks(text)
 
         if not chunks:
             raise ValueError("No extractable text found in PDF")

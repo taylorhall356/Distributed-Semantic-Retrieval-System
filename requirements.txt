@@ -8,6 +8,7 @@ bcrypt
 PyJWT
 celery
 docling
+pymupdf==1.26.3
 sentence-transformers
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu

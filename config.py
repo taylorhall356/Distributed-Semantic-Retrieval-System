@@ -73,3 +73,7 @@ QUERY_EMBEDDING_CACHE_LOGGING = get_bool_env(
 DOCUMENT_PROCESSING_STALE_SECONDS = int(
     os.getenv("DOCUMENT_PROCESSING_STALE_SECONDS", "900")
 )
+PDF_EXTRACTOR_BACKEND = os.getenv(
+    "PDF_EXTRACTOR_BACKEND",
+    "pymupdf_blocks",
+).strip().lower()
