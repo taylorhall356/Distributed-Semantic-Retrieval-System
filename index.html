@@ -768,13 +768,20 @@
         // Documents
         async function loadDocuments() {
             try {
+                console.log('Fetching documents...');
                 const response = await fetch(`${API_BASE_URL}/documents`, {
                     headers: { 'Authorization': `Bearer ${currentToken}` }
                 });
 
-                if (!response.ok) throw new Error('Failed to load documents');
+                console.log(`Documents response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to load documents');
+                }
 
                 documents = await response.json();
+                console.log(`Loaded ${documents.length} documents:`, documents);
                 renderDocuments();
             } catch (error) {
                 console.error('Error loading documents:', error);
@@ -842,6 +849,9 @@
 
             try {
                 document.getElementById('uploadStatus').style.display = 'block';
+                console.log(`Uploading file: ${file.name}`);
+                console.log(`API URL: ${API_BASE_URL}/documents`);
+                console.log(`Auth token: ${currentToken?.substring(0, 20)}...`);
 
                 const response = await fetch(`${API_BASE_URL}/documents`, {
                     method: 'POST',
@@ -849,20 +859,31 @@
                     body: formData
                 });
 
-                if (!response.ok) throw new Error('Upload failed');
+                console.log(`Upload response status: ${response.status}`);
+                const responseData = await response.json();
+                console.log(`Upload response data:`, responseData);
 
-                const uploadedDoc = await response.json();
+                if (!response.ok) {
+                    throw new Error(responseData.detail || `Upload failed with status ${response.status}`);
+                }
+
+                const uploadedDoc = responseData;
+                console.log(`Document uploaded successfully:`, uploadedDoc);
+                
                 showSuccess(`Document "${file.name}" uploaded successfully!`);
                 document.getElementById('fileInput').value = '';
                 document.getElementById('uploadStatus').style.display = 'none';
                 
+                console.log('Loading documents list...');
                 await loadDocuments();
                 
                 // Automatically select the newly uploaded document to show details
                 if (uploadedDoc && uploadedDoc.id) {
+                    console.log(`Selecting document ${uploadedDoc.id}`);
                     selectDocument(uploadedDoc.id);
                 }
             } catch (error) {
+                console.error('Upload error:', error);
                 showError(error.message);
                 document.getElementById('uploadStatus').style.display = 'none';
             }

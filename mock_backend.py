@@ -186,19 +186,29 @@ def list_documents():
 @app.route("/documents", methods=["POST"])
 def upload_document():
     """Upload a new document"""
+    print(f"DEBUG: Upload request received")
+    print(f"DEBUG: Headers: {dict(request.headers)}")
+    print(f"DEBUG: Files: {request.files.keys()}")
+    
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
+        print("DEBUG: No auth header")
         return jsonify({"detail": "Not authenticated"}), 401
     
     token = auth_header[7:]
     payload = verify_token(token)
     if not payload:
+        print("DEBUG: Invalid token")
         return jsonify({"detail": "Invalid token"}), 401
     
     if "file" not in request.files:
+        print("DEBUG: No file in request.files")
+        print(f"DEBUG: Available keys: {list(request.files.keys())}")
         return jsonify({"detail": "No file provided"}), 400
     
     file = request.files["file"]
+    print(f"DEBUG: File received: {file.filename}")
+    
     if not file.filename.endswith(".pdf"):
         return jsonify({"detail": "Only PDF files allowed"}), 400
     
@@ -218,6 +228,7 @@ def upload_document():
         mock_documents[user_id] = []
     
     mock_documents[user_id].append(new_doc)
+    print(f"DEBUG: Document added. ID={doc_id}, User={user_id}")
     
     # Start a background thread to transition to "ready" after 5 seconds
     def transition_to_ready(user_id, doc_id):
@@ -225,11 +236,13 @@ def upload_document():
         for doc in mock_documents.get(user_id, []):
             if doc["id"] == doc_id:
                 doc["status"] = "ready"
+                print(f"DEBUG: Transitioned doc {doc_id} to ready")
                 break
     
     thread = threading.Thread(target=transition_to_ready, args=(user_id, doc_id), daemon=True)
     thread.start()
     
+    print(f"DEBUG: Returning {new_doc}")
     return jsonify(new_doc), 202
 
 @app.route("/documents/<int:doc_id>", methods=["DELETE"])
