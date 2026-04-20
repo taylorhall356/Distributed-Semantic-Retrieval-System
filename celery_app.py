@@ -15,6 +15,9 @@ celery_app = Celery(
 celery_app.conf.update(
     task_default_queue=DOCUMENT_PARSING_QUEUE,
     task_ignore_result=True,
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
 )
 
 

@@ -55,7 +55,7 @@ x-app-environment: &app-environment
   QDRANT_COLLECTION: ${QDRANT_COLLECTION:-document_chunks}
   EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
   EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE:-384}
-  EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://embedding-service:8090}
+  EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://embedding-router:8090}
   EMBEDDING_REQUEST_TIMEOUT_SECONDS: ${EMBEDDING_REQUEST_TIMEOUT_SECONDS:-120}
   REDIS_ENABLED: ${REDIS_ENABLED:-true}
   REDIS_HOST: ${REDIS_HOST:-redis}
@@ -70,7 +70,7 @@ x-app-environment: &app-environment
 x-app-depends-on: &app-depends-on
   bootstrap:
     condition: service_completed_successfully
-  embedding-service:
+  embedding-router:
     condition: service_healthy
   postgres:
     condition: service_healthy
@@ -109,7 +109,7 @@ x-worker-service: &worker-service
   environment:
     <<: *app-environment
     CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
-    CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
+    CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
 
 x-parse-worker-service: &parse-worker-service
   <<: *worker-service
@@ -121,7 +121,7 @@ services:
     <<: *app-image
     command: python bootstrap.py
     depends_on:
-      embedding-service:
+      embedding-router:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -160,6 +160,53 @@ services:
       retries: 5
       start_period: 180s
 
+  embedding-service2:
+    <<: *embedding-image
+    restart: unless-stopped
+    command: uvicorn embedding_service:app --host 0.0.0.0 --port 8090
+    environment:
+      <<: *app-environment
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+  embedding-service3:
+    <<: *embedding-image
+    restart: unless-stopped
+    command: uvicorn embedding_service:app --host 0.0.0.0 --port 8090
+    environment:
+      <<: *app-environment
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+  embedding-router:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      embedding-service:
+        condition: service_healthy
+      embedding-service2:
+        condition: service_healthy
+      embedding-service3:
+        condition: service_healthy
+    volumes:
+      - ./nginx/embedding-router.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -170,6 +217,10 @@ services:
         condition: service_healthy
       api3:
         condition: service_healthy
+      api4:
+        condition: service_healthy
+      api5:
+        condition: service_healthy
     ports:
       - "${NGINX_HOST_PORT:-8080}:80"
     volumes:
@@ -179,7 +230,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 45s
+      start_period: 90s
 
   api:
     <<: *api-service
@@ -188,6 +239,12 @@ services:
     <<: *api-service
 
   api3:
+    <<: *api-service
+
+  api4:
+    <<: *api-service
+
+  api5:
     <<: *api-service
 
   worker:
@@ -204,7 +261,7 @@ services:
     environment:
       <<: *app-environment
       CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
-      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
       WORKER_ROLE: parsing
 
   worker2:
@@ -221,7 +278,7 @@ services:
     environment:
       <<: *app-environment
       CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
-      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
       WORKER_ROLE: parsing
 
   worker3:
@@ -238,7 +295,7 @@ services:
     environment:
       <<: *app-environment
       CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
-      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
       WORKER_ROLE: parsing
 
   worker4:
@@ -255,7 +312,109 @@ services:
     environment:
       <<: *app-environment
       CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
-      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
+      WORKER_ROLE: parsing
+
+  worker5:
+    <<: *parse-worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
+      WORKER_ROLE: parsing
+
+  worker6:
+    <<: *parse-worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
+      WORKER_ROLE: parsing
+
+  worker7:
+    <<: *parse-worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
+      WORKER_ROLE: parsing
+
+  worker8:
+    <<: *parse-worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
+      WORKER_ROLE: parsing
+
+  worker9:
+    <<: *parse-worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
+      WORKER_ROLE: parsing
+
+  worker10:
+    <<: *parse-worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${PARSE_WORKER_CONCURRENCY:-1}
       WORKER_ROLE: parsing
 
   embedding-worker:
@@ -272,7 +431,24 @@ services:
     environment:
       <<: *app-environment
       CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
-      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
+      CELERY_WORKER_CONCURRENCY: ${EMBEDDING_WORKER_CONCURRENCY:-2}
+      WORKER_ROLE: embedding
+
+  embedding-worker2:
+    <<: *worker-service
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_EMBEDDING_QUEUE}"
+    environment:
+      <<: *app-environment
+      CELERY_WORKER_POOL: ${CELERY_WORKER_POOL:-prefork}
+      CELERY_WORKER_CONCURRENCY: ${EMBEDDING_WORKER_CONCURRENCY:-2}
       WORKER_ROLE: embedding
 
   postgres:
