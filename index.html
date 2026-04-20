@@ -618,6 +618,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
             setupEventListeners();
+            // Refresh documents every 10 seconds to update status
+            setInterval(() => {
+                if (currentToken && documents.length > 0) {
+                    loadDocuments();
+                }
+            }, 10000);
         });
 
         // Event Listeners
