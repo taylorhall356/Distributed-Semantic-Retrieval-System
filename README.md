@@ -11,7 +11,8 @@ This project is a semantic search system for PDF documents. Users can sign up, u
 - Redis for query embedding cache
 - Qdrant for vector search
 - MinIO for object storage
-- Four parsing workers and one embedding worker
+- Eight parsing workers and two embedding workers
+- Three embedding-service replicas behind an internal router
 - Nginx reverse proxy on `http://localhost:8080`
 
 All required services are containerized and started by a single `docker-compose up`.
@@ -56,7 +57,7 @@ Then use `http://localhost:18080` for manual testing on that shared host. Keep t
 - The first build is the slowest because the image installs Python dependencies and preloads model assets used by Docling and the embedding service.
 - Later restarts are much faster because the Docker image layers and named volumes are reused.
 - No local Python environment, database, or filesystem path setup is required.
-- The app image is intentionally shared by the API, workers, bootstrap job, and embedding service so Compose reuses one build instead of producing a separate large image per service.
+- The runtime images are split by role so parsing, embedding, and API services can scale independently while keeping builds deterministic.
 
 ## Common Commands
 
@@ -87,7 +88,7 @@ docker-compose ps
 View logs:
 
 ```bash
-docker-compose logs -f nginx api worker embedding-worker
+docker-compose logs -f nginx api worker embedding-worker embedding-router
 ```
 
 ## API Smoke Test
@@ -134,10 +135,10 @@ curl -G http://localhost:8080/search \
 ## Services
 
 - `nginx` exposes the public API on port `8080`
-- `api`, `api2`, `api3` run the FastAPI application
-- `worker`, `worker2`, `worker3`, `worker4` process PDF parsing tasks
-- `embedding-worker` handles embedding and indexing tasks
-- `embedding-service` serves query/document embeddings
+- `api` through `api5` run the FastAPI application behind nginx
+- `worker` through `worker8` process PDF parsing tasks
+- `embedding-worker` and `embedding-worker2` handle embedding/indexing tasks
+- `embedding-service`, `embedding-service2`, and `embedding-service3` serve embeddings behind `embedding-router`
 
 ## Environment Configuration
 
@@ -149,3 +150,12 @@ docker-compose up --build
 ```
 
 If you need to change the public port, update `NGINX_HOST_PORT` in `.env`.
+
+## Scale Notes
+
+This branch is tuned for higher throughput rather than the smallest possible footprint:
+
+- parsing workers default to `PARSE_WORKER_CONCURRENCY=1` so Docling-heavy jobs do not overcommit CPU/RAM per container
+- embedding workers default to `EMBEDDING_WORKER_CONCURRENCY=2`
+- Celery uses `worker_prefetch_multiplier=1` so long-running parse tasks are distributed more evenly
+- the app points to `embedding-router`, which load-balances across three embedding-service replicas

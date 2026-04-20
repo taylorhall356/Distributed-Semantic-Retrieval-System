@@ -8,3 +8,5 @@ storage/
 test_*.pdf
 test_*.txt
 artifacts/load_benchmarks/
+*.log
+*.pdf
