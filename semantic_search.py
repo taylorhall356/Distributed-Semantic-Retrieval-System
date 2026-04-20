@@ -8,6 +8,7 @@ from config import (
     QDRANT_PORT,
 )
 from embedding_client import embed_text, embed_texts
+from query_embedding_cache import get_cached_query_embedding, set_cached_query_embedding
 
 _qdrant_client: QdrantClient | None = None
 UPSERT_BATCH_SIZE = 32
@@ -105,7 +106,10 @@ def delete_document_vectors(document_id: int, user_id: int) -> None:
 
 def search_document_chunks(user_id: int, query: str, limit: int = 5) -> list[dict[str, str | int | float]]:
     client = get_qdrant_client()
-    query_vector = embed_text(query)
+    query_vector = get_cached_query_embedding(query)
+    if query_vector is None:
+        query_vector = embed_text(query)
+        set_cached_query_embedding(query, query_vector)
 
     response = client.query_points(
         collection_name=QDRANT_COLLECTION,

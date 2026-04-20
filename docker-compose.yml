@@ -68,6 +68,7 @@ services:
       - postgres
       - qdrant
       - rabbitmq
+      - redis
       - minio
     environment:
       DB_HOST: postgres
@@ -93,6 +94,12 @@ services:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
       interval: 10s
@@ -110,6 +117,7 @@ services:
       - postgres
       - qdrant
       - rabbitmq
+      - redis
       - minio
     environment:
       DB_HOST: postgres
@@ -135,6 +143,12 @@ services:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
       interval: 10s
@@ -152,6 +166,7 @@ services:
       - postgres
       - qdrant
       - rabbitmq
+      - redis
       - minio
     environment:
       DB_HOST: postgres
@@ -177,6 +192,12 @@ services:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
       interval: 10s
@@ -195,6 +216,7 @@ services:
       - postgres
       - qdrant
       - rabbitmq
+      - redis
       - minio
     environment:
       DB_HOST: postgres
@@ -220,6 +242,12 @@ services:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
       EMBEDDING_VECTOR_SIZE: "384"
       EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
 
   postgres:
     image: postgres:16
@@ -250,6 +278,24 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  redis:
+    image: redis:7-alpine
+    container_name: semantic-retrieval-redis
+    environment:
+      REDIS_MAXMEMORY: 128mb
+      REDIS_MAXMEMORY_POLICY: allkeys-lru
+    ports:
+      - "6379:6379"
+    command:
+      - sh
+      - -c
+      - >
+        redis-server
+        --save ""
+        --appendonly no
+        --maxmemory "$${REDIS_MAXMEMORY}"
+        --maxmemory-policy "$${REDIS_MAXMEMORY_POLICY}"
+
   minio:
     image: minio/minio:latest
     container_name: semantic-retrieval-minio
@@ -262,6 +308,18 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+
+  locust:
+    build:
+      context: .
+    container_name: semantic-retrieval-locust
+    profiles:
+      - loadtest
+    depends_on:
+      - nginx
+    entrypoint: ["locust", "-f", "load/locustfile.py", "--host", "http://nginx"]
+    ports:
+      - "8089:8089"
 
 volumes:
   postgres_data:
