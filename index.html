@@ -313,6 +313,7 @@
 
         .search-input-group {
             display: flex;
+            flex-direction: column;
             gap: 1rem;
             margin-bottom: 1.5rem;
         }
@@ -336,7 +337,8 @@
 
         .btn-search {
             padding: 0.75rem 1.5rem;
-            align-self: flex-end;
+            align-self: flex-start;
+            min-width: 220px;
         }
 
         .search-results {
@@ -510,11 +512,11 @@
             <form id="authForm">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" placeholder="Enter your username" required>
+                    <input type="text" id="username" placeholder="Enter your username" required minlength="3" maxlength="50">
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required>
+                    <input type="password" id="password" placeholder="Enter your password" required minlength="8" maxlength="128">
                 </div>
                 <button type="submit" class="btn btn-primary" id="authBtn">Sign Up</button>
             </form>
@@ -685,7 +687,7 @@
 
         async function handleAuthSubmit(e) {
             e.preventDefault();
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const isSignUp = document.getElementById('authBtn').textContent === 'Sign Up';
             const endpoint = isSignUp ? '/auth/signup' : '/auth/login';
@@ -698,8 +700,7 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Authentication failed');
+                    throw new Error(await extractErrorMessage(response, 'Authentication failed'));
                 }
 
                 const data = await response.json();
@@ -713,7 +714,7 @@
                     });
                     
                     if (!loginResponse.ok) {
-                        throw new Error('Signup succeeded but auto-login failed. Please log in manually.');
+                        throw new Error(await extractErrorMessage(loginResponse, 'Signup succeeded but auto-login failed. Please log in manually.'));
                     }
                     
                     const loginData = await loginResponse.json();
@@ -803,14 +804,7 @@
                 console.log(`Documents response status: ${response.status}`);
                 
                 if (!response.ok) {
-                    let errorMessage = 'Failed to load documents';
-                    try {
-                        const error = await response.json();
-                        errorMessage = error.detail || errorMessage;
-                    } catch {
-                        // Ignore parse errors
-                    }
-                    throw new Error(errorMessage);
+                    throw new Error(await extractErrorMessage(response, 'Failed to load documents'));
                 }
 
                 documents = await response.json();
@@ -916,7 +910,7 @@
                 console.log(`Upload response data:`, responseData);
 
                 if (!response.ok) {
-                    throw new Error(responseData.detail || `Upload failed with status ${response.status}`);
+                    throw new Error(formatApiError(responseData, `Upload failed with status ${response.status}`));
                 }
 
                 const uploadedDoc = responseData;
@@ -979,14 +973,7 @@
                 });
 
                 if (!response.ok) {
-                    let message = 'Search failed';
-                    try {
-                        const error = await response.json();
-                        message = error.detail || message;
-                    } catch {
-                        // ignore parsing errors
-                    }
-                    throw new Error(message);
+                    throw new Error(await extractErrorMessage(response, 'Search failed'));
                 }
 
                 const results = await response.json();
@@ -1017,17 +1004,72 @@
                 <div style="margin-bottom: 1rem; color: #334155; font-weight: 700;">Showing top ${Math.min(results.length, 10)} matches from your documents</div>
                 ${results.slice(0, 10).map((result, idx) => `
                     <div class="result-item">
-                        <div class="result-document">${idx + 1}. ${result.document_filename || 'Unknown Document'}</div>
+                        <div class="result-document">${idx + 1}. ${escapeHtml(result.filename || result.document_filename || 'Unknown Document')}</div>
                         <div class="result-similarity">
                             <div class="similarity-bar">
                                 <div class="similarity-fill" style="width: ${Math.round(result.score * 100)}%"></div>
                             </div>
                             <span class="similarity-text">${(result.score * 100).toFixed(1)}%</span>
                         </div>
-                        <div class="result-text">${result.text || 'No snippet available.'}</div>
+                        <div class="result-text">${escapeHtml(result.content || result.text || 'No snippet available.')}</div>
                     </div>
                 `).join('')}
             `;
+        }
+
+        function formatApiError(error, fallbackMessage) {
+            if (!error) {
+                return fallbackMessage;
+            }
+
+            if (typeof error === 'string') {
+                return error;
+            }
+
+            if (Array.isArray(error.detail)) {
+                return error.detail.map(formatValidationIssue).join('; ');
+            }
+
+            if (typeof error.detail === 'string') {
+                return error.detail;
+            }
+
+            if (error.detail && typeof error.detail === 'object') {
+                return formatValidationIssue(error.detail);
+            }
+
+            return fallbackMessage;
+        }
+
+        function formatValidationIssue(issue) {
+            if (!issue || typeof issue !== 'object') {
+                return 'Validation failed';
+            }
+
+            const location = Array.isArray(issue.loc) ? issue.loc.filter(part => part !== 'body').join('.') : '';
+            if (location && issue.msg) {
+                return `${location}: ${issue.msg}`;
+            }
+
+            return issue.msg || 'Validation failed';
+        }
+
+        async function extractErrorMessage(response, fallbackMessage) {
+            try {
+                const error = await response.json();
+                return formatApiError(error, fallbackMessage);
+            } catch {
+                return fallbackMessage;
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         // Messages
