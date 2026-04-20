@@ -606,7 +606,9 @@
 
     <script>
         // Configuration
-        const API_BASE_URL = 'http://localhost:8080';
+        // Set to 'http://localhost:5000' for mock backend
+        // Set to 'http://localhost:8080' for real backend (Docker)
+        const API_BASE_URL = 'http://localhost:5000';
         let currentUser = null;
         let currentToken = null;
         let documents = [];
@@ -687,8 +689,28 @@
                 }
 
                 const data = await response.json();
-                currentUser = data.username || data.name || username;
-                currentToken = data.access_token;
+                
+                // If signup, automatically login to get token
+                if (isSignUp) {
+                    const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    if (!loginResponse.ok) {
+                        throw new Error('Signup succeeded but auto-login failed. Please log in manually.');
+                    }
+                    
+                    const loginData = await loginResponse.json();
+                    currentToken = loginData.access_token;
+                    currentUser = username;
+                } else {
+                    // Login response
+                    currentUser = data.username || username;
+                    currentToken = data.access_token;
+                }
+                
                 localStorage.setItem('token', currentToken);
                 localStorage.setItem('username', currentUser);
 
@@ -823,10 +845,17 @@
 
                 if (!response.ok) throw new Error('Upload failed');
 
+                const uploadedDoc = await response.json();
                 showSuccess(`Document "${file.name}" uploaded successfully!`);
                 document.getElementById('fileInput').value = '';
                 document.getElementById('uploadStatus').style.display = 'none';
+                
                 await loadDocuments();
+                
+                // Automatically select the newly uploaded document to show details
+                if (uploadedDoc && uploadedDoc.id) {
+                    selectDocument(uploadedDoc.id);
+                }
             } catch (error) {
                 showError(error.message);
                 document.getElementById('uploadStatus').style.display = 'none';
