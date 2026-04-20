@@ -9,3 +9,5 @@ docling
 sentence-transformers
 qdrant-client
 minio
+locust
+redis
