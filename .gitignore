@@ -10,3 +10,4 @@ test_*.txt
 artifacts/load_benchmarks/
 *.log
 *.pdf
+nginx/.nfs*

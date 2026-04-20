@@ -25,7 +25,7 @@ class FilesystemStorage:
     def ensure_ready(self) -> None:
         DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    def save_bytes(self, object_key: str, content: bytes) -> None:
+    def save_bytes(self, object_key: str, content: bytes, content_type: str | None = None) -> None:
         self.get_document_path(object_key).write_bytes(content)
 
     def read_bytes(self, object_key: str) -> bytes:

@@ -24,7 +24,7 @@ class LoginResponse(BaseModel):
 
 
 class CurrentUserResponse(BaseModel):
-    id: str
+    id: int
     username: str
 
 
@@ -38,11 +38,11 @@ class DocumentResponse(BaseModel):
 
 
 class SearchResultResponse(BaseModel):
-    document_id: int
     filename: str
-    chunk_index: int
     content: str
     score: float
+    document_id: int
+    chunk_index: int
 
 
 class QueueTestResponse(BaseModel):
