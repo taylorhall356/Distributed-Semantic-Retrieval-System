@@ -799,7 +799,9 @@
                 return;
             }
 
-            list.innerHTML = documents.map(doc => `
+            const sortedDocuments = [...documents].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            list.innerHTML = sortedDocuments.map(doc => `
                 <div class="document-item ${selectedDocumentId === doc.id ? 'active' : ''}" onclick="selectDocument(${doc.id})">
                     <div class="document-name">${doc.filename}</div>
                     <div class="document-status">
@@ -882,18 +884,28 @@
                 const uploadedDoc = responseData;
                 console.log(`Document uploaded successfully:`, uploadedDoc);
                 
+                // Add the uploaded document locally so it appears immediately even if the refresh fails.
+                const existingIndex = documents.findIndex((doc) => doc.id === uploadedDoc.id);
+                if (existingIndex === -1) {
+                    documents.unshift(uploadedDoc);
+                } else {
+                    documents[existingIndex] = uploadedDoc;
+                }
+
                 showSuccess(`Document "${file.name}" uploaded successfully!`);
                 document.getElementById('fileInput').value = '';
                 document.getElementById('uploadStatus').style.display = 'none';
                 
-                console.log('Loading documents list...');
-                await loadDocuments();
+                renderDocuments();
                 
                 // Automatically select the newly uploaded document to show details
                 if (uploadedDoc && uploadedDoc.id) {
                     console.log(`Selecting document ${uploadedDoc.id}`);
                     selectDocument(uploadedDoc.id);
                 }
+
+                console.log('Loading documents list...');
+                await loadDocuments();
             } catch (error) {
                 console.error('Upload error:', error);
                 showError(error.message);
