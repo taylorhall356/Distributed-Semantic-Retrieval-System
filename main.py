@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, st
 
 from auth import authenticate_user, create_access_token, create_user, get_current_user
 from celery_app import enqueue_document_task, enqueue_test_task
-from config import DOCUMENT_PROCESSING_QUEUE
+from config import DOCUMENT_PARSING_QUEUE
 from db import get_connection
 from documents import (
     create_document,
@@ -244,6 +244,6 @@ def queue_test(
     task = enqueue_test_task(username=str(current_user["username"]))
     return QueueTestResponse(
         task_id=task.id,
-        queue=DOCUMENT_PROCESSING_QUEUE,
+        queue=DOCUMENT_PARSING_QUEUE,
         status="queued",
     )
