@@ -557,6 +557,9 @@
                                 <div class="spinner"></div>
                                 <div class="loading-text">Uploading and processing...</div>
                             </div>
+                            <div style="margin-top: 1rem; text-align: center;">
+                                <button style="padding: 0.5rem 1rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;" onclick="testUpload()">Test Upload (Debug)</button>
+                            </div>
                         </div>
 
                         <div class="documents-section">
@@ -836,6 +839,15 @@
             if (file) {
                 uploadFile(file);
             }
+        }
+
+        async function testUpload() {
+            console.log("Test upload button clicked");
+            // Create a minimal PDF blob
+            const pdfContent = new Blob(["%PDF-1.4\nTest document"], { type: "application/pdf" });
+            const file = new File([pdfContent], "test-upload.pdf", { type: "application/pdf" });
+            console.log("Created test file:", file.name, file.size, file.type);
+            await uploadFile(file);
         }
 
         async function uploadFile(file) {

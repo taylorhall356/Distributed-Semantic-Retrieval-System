@@ -183,6 +183,11 @@ def list_documents():
     documents = mock_documents.get(user_id, [])
     return jsonify(documents), 200
 
+@app.route("/documents", methods=["OPTIONS"])
+def documents_options():
+    """Handle CORS preflight for documents endpoint"""
+    return "", 204
+
 @app.route("/documents", methods=["POST"])
 def upload_document():
     """Upload a new document"""
