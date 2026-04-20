@@ -1,5 +1,22 @@
+import logging
+import os
+
+from celery.signals import worker_process_init
+
 from celery_app import celery_app
-from documents import embed_document, parse_document_and_enqueue_embedding
+from documents import embed_document, parse_document_and_enqueue_embedding, warm_docling_pipeline
+
+logger = logging.getLogger(__name__)
+
+
+@worker_process_init.connect
+def warm_parsing_worker_process(**_: object) -> None:
+    if os.getenv("WORKER_ROLE", "").strip().lower() != "parsing":
+        return
+
+    logger.info("Warming Docling pipeline for parsing worker process")
+    warm_docling_pipeline()
+    logger.info("Docling pipeline warmup complete for parsing worker process")
 
 
 @celery_app.task(name="tasks.ping")

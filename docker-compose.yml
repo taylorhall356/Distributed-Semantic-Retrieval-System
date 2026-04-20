@@ -266,6 +266,64 @@ services:
       QUERY_EMBEDDING_CACHE_LOGGING: "true"
       CELERY_WORKER_POOL: prefork
       CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: parsing
+
+  worker2:
+    build:
+      context: .
+    container_name: semantic-retrieval-worker-2
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    depends_on:
+      - bootstrap
+      - embedding-service
+      - postgres
+      - qdrant
+      - rabbitmq
+      - redis
+      - minio
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
+      CELERY_WORKER_POOL: prefork
+      CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: parsing
 
   embedding-worker:
     build:
@@ -322,6 +380,7 @@ services:
       QUERY_EMBEDDING_CACHE_LOGGING: "true"
       CELERY_WORKER_POOL: prefork
       CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: embedding
 
   postgres:
     image: postgres:16
