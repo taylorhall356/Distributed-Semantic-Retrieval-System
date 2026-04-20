@@ -5,10 +5,14 @@ services:
     container_name: semantic-retrieval-bootstrap
     command: python bootstrap.py
     depends_on:
-      - embedding-service
-      - postgres
-      - qdrant
-      - minio
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      minio:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -30,23 +34,28 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-embedding-service
+    restart: unless-stopped
     command: uvicorn embedding_service:app --host 0.0.0.0 --port 8090
     environment:
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/ready', timeout=3).read()"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5).read()"]
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 45s
+      retries: 5
+      start_period: 180s
 
   nginx:
     image: nginx:1.27-alpine
     container_name: semantic-retrieval-nginx
+    restart: unless-stopped
     depends_on:
-      - api
-      - api2
-      - api3
+      api:
+        condition: service_healthy
+      api2:
+        condition: service_healthy
+      api3:
+        condition: service_healthy
     ports:
       - "8080:80"
     volumes:
@@ -62,14 +71,22 @@ services:
     build:
       context: .
     container_name: semantic-retrieval-api
+    restart: unless-stopped
     depends_on:
-      - bootstrap
-      - embedding-service
-      - postgres
-      - qdrant
-      - rabbitmq
-      - redis
-      - minio
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -88,6 +105,8 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
@@ -101,24 +120,32 @@ services:
       QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
       QUERY_EMBEDDING_CACHE_LOGGING: "true"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()"]
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 45s
+      retries: 5
+      start_period: 120s
 
   api2:
     build:
       context: .
     container_name: semantic-retrieval-api-2
+    restart: unless-stopped
     depends_on:
-      - bootstrap
-      - embedding-service
-      - postgres
-      - qdrant
-      - rabbitmq
-      - redis
-      - minio
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -137,6 +164,8 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
@@ -150,24 +179,32 @@ services:
       QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
       QUERY_EMBEDDING_CACHE_LOGGING: "true"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()"]
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 45s
+      retries: 5
+      start_period: 120s
 
   api3:
     build:
       context: .
     container_name: semantic-retrieval-api-3
+    restart: unless-stopped
     depends_on:
-      - bootstrap
-      - embedding-service
-      - postgres
-      - qdrant
-      - rabbitmq
-      - redis
-      - minio
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -186,6 +223,8 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
@@ -199,25 +238,41 @@ services:
       QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
       QUERY_EMBEDDING_CACHE_LOGGING: "true"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()"]
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 45s
+      retries: 5
+      start_period: 120s
 
   worker:
     build:
       context: .
     container_name: semantic-retrieval-worker
-    command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
     depends_on:
-      - bootstrap
-      - embedding-service
-      - postgres
-      - qdrant
-      - rabbitmq
-      - redis
-      - minio
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -236,6 +291,8 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: document_chunks
@@ -248,14 +305,284 @@ services:
       REDIS_DB: "0"
       QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
       QUERY_EMBEDDING_CACHE_LOGGING: "true"
+      CELERY_WORKER_POOL: prefork
+      CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: parsing
+
+  worker2:
+    build:
+      context: .
+    container_name: semantic-retrieval-worker-2
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
+      CELERY_WORKER_POOL: prefork
+      CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: parsing
+
+  worker3:
+    build:
+      context: .
+    container_name: semantic-retrieval-worker-3
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
+      CELERY_WORKER_POOL: prefork
+      CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: parsing
+
+  worker4:
+    build:
+      context: .
+    container_name: semantic-retrieval-worker-4
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_PARSING_QUEUE}"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
+      CELERY_WORKER_POOL: prefork
+      CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: parsing
+
+  embedding-worker:
+    build:
+      context: .
+    container_name: semantic-retrieval-embedding-worker
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >
+        celery -A tasks worker
+        --loglevel=info
+        --pool="$${CELERY_WORKER_POOL}"
+        --concurrency="$${CELERY_WORKER_CONCURRENCY}"
+        --queues="$${DOCUMENT_EMBEDDING_QUEUE}"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: semantic_retrieval
+      DB_USER: semantic_user
+      DB_PASSWORD: semantic_password
+      JWT_SECRET: development-secret-key-at-least-32-bytes
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: document-storage
+      MINIO_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      DOCUMENT_PROCESSING_QUEUE: document_processing
+      DOCUMENT_PARSING_QUEUE: document_parsing
+      DOCUMENT_EMBEDDING_QUEUE: document_embedding
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: document_chunks
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_VECTOR_SIZE: "384"
+      EMBEDDING_SERVICE_URL: http://embedding-service:8090
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      QUERY_EMBEDDING_CACHE_TTL_SECONDS: "3600"
+      QUERY_EMBEDDING_CACHE_LOGGING: "true"
+      CELERY_WORKER_POOL: prefork
+      CELERY_WORKER_CONCURRENCY: "2"
+      WORKER_ROLE: embedding
 
   postgres:
     image: postgres:16
     container_name: semantic-retrieval-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: semantic_retrieval
       POSTGRES_USER: semantic_user
       POSTGRES_PASSWORD: semantic_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semantic_user -d semantic_retrieval"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "5432:5432"
     volumes:
@@ -264,6 +591,7 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: semantic-retrieval-qdrant
+    restart: unless-stopped
     ports:
       - "6333:6333"
     volumes:
@@ -272,6 +600,13 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: semantic-retrieval-rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -281,9 +616,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: semantic-retrieval-redis
+    restart: unless-stopped
     environment:
       REDIS_MAXMEMORY: 128mb
       REDIS_MAXMEMORY_POLICY: allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     ports:
       - "6379:6379"
     command:
@@ -299,6 +641,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: semantic-retrieval-minio
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin

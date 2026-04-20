@@ -13,6 +13,7 @@ from config import DOCUMENT_PROCESSING_STALE_SECONDS
 from db import get_connection
 from semantic_search import delete_document_vectors, index_document_chunks
 from storage import delete_document_file, read_document_bytes
+from celery_app import enqueue_document_embedding_task
 
 MAX_PARAGRAPH_CHARS = 1200
 MIN_INDEXABLE_CHARS = 80
@@ -578,6 +579,30 @@ def store_document_chunks(document_id: int, user_id: int, chunks: list[str]) -> 
     return stored_chunks
 
 
+def get_stored_document_chunks(document_id: int, user_id: int) -> list[dict[str, str | int]]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, chunk_index, content
+                FROM document_chunks
+                WHERE document_id = %s AND user_id = %s
+                ORDER BY chunk_index ASC
+                """,
+                (document_id, user_id),
+            )
+            rows = cur.fetchall()
+
+    return [
+        {
+            "id": chunk_id,
+            "chunk_index": chunk_index,
+            "content": content,
+        }
+        for chunk_id, chunk_index, content in rows
+    ]
+
+
 def update_document_status(document_id: int, status: str, error_message: str | None = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -651,8 +676,14 @@ def reset_document_for_retry(document_id: int, user_id: int) -> dict[str, str | 
     }
 
 
-def process_document(document_id: int, user_id: int, filename: str, object_key: str) -> str:
+def parse_document_and_enqueue_embedding(
+    document_id: int,
+    user_id: int,
+    filename: str,
+    object_key: str,
+) -> str:
     try:
+        warm_docling_pipeline()
         text = extract_pdf_text(object_key)
         chunks = split_docling_markdown_into_chunks(text)
 
@@ -664,6 +695,29 @@ def process_document(document_id: int, user_id: int, filename: str, object_key: 
             user_id=user_id,
             chunks=chunks,
         )
+        if not stored_chunks:
+            raise ValueError("No document chunks were stored for embedding")
+
+        enqueue_document_embedding_task(
+            document_id=document_id,
+            user_id=user_id,
+            filename=filename,
+        )
+        return "parsed"
+    except Exception as exc:
+        update_document_status(document_id=document_id, status="failed", error_message=str(exc))
+        raise
+
+
+def embed_document(document_id: int, user_id: int, filename: str) -> str:
+    try:
+        stored_chunks = get_stored_document_chunks(
+            document_id=document_id,
+            user_id=user_id,
+        )
+        if not stored_chunks:
+            raise ValueError("No stored chunks found for embedding")
+
         index_document_chunks(
             document_id=document_id,
             user_id=user_id,
