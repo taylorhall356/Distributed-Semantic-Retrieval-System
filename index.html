@@ -536,8 +536,8 @@
 
         <div class="container">
             <div class="tabs">
-                <div class="tab active" onclick="switchTab('upload')">📤 Upload</div>
-                <div class="tab" onclick="switchTab('search')">🔍 Search</div>
+                <div class="tab active" onclick="switchTab('upload', this)">📤 Upload</div>
+                <div class="tab" onclick="switchTab('search', this)">🔍 Search</div>
             </div>
 
             <!-- Upload Tab -->
@@ -581,19 +581,24 @@
             </div>
 
             <!-- Search Tab -->
-            <div id="searchTab" class="tab-content hidden">
+            <div id="searchTab" class="tab-content">
                 <div class="search-section">
                     <h2>🔍 Semantic Text Search</h2>
-                    <p style="color: #666; margin-bottom: 1.5rem;">Compare your text with your uploaded documents to find similar content</p>
-                    
-                    <div class="search-input-group">
-                        <textarea id="searchQuery" placeholder="Enter text to search... (e.g., 'What is machine learning?')" required></textarea>
-                        <button class="btn btn-primary btn-search" onclick="performSearch()">Search</button>
+                    <p style="color: #666; margin-bottom: 1rem;">Search across your uploaded documents using natural language. Only documents marked <strong>ready</strong> will be included in the search.</p>
+                    <div style="background: #eef3ff; border: 1px solid #d7e1ff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; color: #334155;">
+                        <p style="margin: 0 0 0.5rem;"><strong>How this works:</strong> Enter a question or phrase and the app returns the most relevant passages from your documents.</p>
+                        <p style="margin: 0; font-size: 0.95rem;">Tip: use clear, descriptive queries like <em>"project scope"</em> or <em>"deployment instructions"</em>.</p>
                     </div>
 
+                    <div class="search-input-group">
+                        <textarea id="searchQuery" placeholder="Enter text to search... e.g. 'What are the installation steps?'" required></textarea>
+                        <button class="btn btn-primary btn-search" onclick="performSearch()">Search documents</button>
+                    </div>
+                    <div style="font-size: 0.92rem; color: #64748b; margin-bottom: 1rem;">Press <strong>Ctrl+Enter</strong> to run the search quickly.</div>
+
                     <div id="processingInfo" class="processing-info">
-                        <p>⏳ Processing your query...</p>
-                        <p>Documents to search: <span class="processor-count" id="docCount">0</span></p>
+                        <p>⏳ Preparing your search results...</p>
+                        <p>Documents available to search: <span class="processor-count" id="docCount">0</span></p>
                     </div>
 
                     <div id="searchLoading" class="loading">
@@ -760,12 +765,31 @@
             document.getElementById('currentUsername').textContent = currentUser;
         }
 
-        function switchTab(tab) {
+        function switchTab(tab, tabElement) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(tab + 'Tab').classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.remove('active');
+                c.style.display = 'none';
+            });
+
+            if (tabElement) {
+                tabElement.classList.add('active');
+            }
+
+            const nextTab = document.getElementById(tab + 'Tab');
+            if (nextTab) {
+                nextTab.classList.add('active');
+                nextTab.style.display = 'block';
+            }
+
+            if (tab === 'search') {
+                setTimeout(() => {
+                    const searchQuery = document.getElementById('searchQuery');
+                    if (searchQuery) {
+                        searchQuery.focus();
+                    }
+                }, 50);
+            }
         }
 
         // Documents
@@ -779,8 +803,14 @@
                 console.log(`Documents response status: ${response.status}`);
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to load documents');
+                    let errorMessage = 'Failed to load documents';
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.detail || errorMessage;
+                    } catch {
+                        // Ignore parse errors
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 documents = await response.json();
@@ -788,6 +818,9 @@
                 renderDocuments();
             } catch (error) {
                 console.error('Error loading documents:', error);
+                showError(error.message);
+                documents = [];
+                renderDocuments();
             }
         }
 
@@ -818,6 +851,11 @@
             renderDocuments();
             
             const info = document.getElementById('documentInfo');
+            if (!doc) {
+                info.innerHTML = '<div style="color: #999; text-align: center; padding: 2rem;">Document details are not available yet.</div>';
+                return;
+            }
+
             info.innerHTML = `
                 <div style="text-align: left;">
                     <h3 style="margin-bottom: 1rem; color: #333;">${doc.filename}</h3>
@@ -853,7 +891,7 @@
         }
 
         async function uploadFile(file) {
-            if (!file.name.endsWith('.pdf')) {
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
                 showError('Please upload a PDF file');
                 return;
             }
@@ -906,6 +944,9 @@
 
                 console.log('Loading documents list...');
                 await loadDocuments();
+                if (uploadedDoc && uploadedDoc.id) {
+                    selectDocument(uploadedDoc.id);
+                }
             } catch (error) {
                 console.error('Upload error:', error);
                 showError(error.message);
@@ -917,36 +958,45 @@
         async function performSearch() {
             const query = document.getElementById('searchQuery').value.trim();
             if (!query) {
-                showError('Please enter search text');
+                showError('Please enter text to search across your documents.');
                 return;
             }
 
-            if (documents.filter(d => d.status === 'ready').length === 0) {
-                showError('No documents available for search. Please upload and wait for processing.');
+            const readyDocs = documents.filter(d => d.status === 'ready');
+            if (readyDocs.length === 0) {
+                showError('No ready documents available for search. Upload a PDF and wait for processing in the Upload tab.');
                 return;
             }
 
             try {
+                document.getElementById('searchResults').innerHTML = '';
                 document.getElementById('searchLoading').classList.add('active');
                 document.getElementById('processingInfo').classList.add('active');
-                document.getElementById('docCount').textContent = documents.filter(d => d.status === 'ready').length;
-                document.getElementById('searchResults').innerHTML = '';
+                document.getElementById('docCount').textContent = readyDocs.length;
 
                 const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`, {
                     headers: { 'Authorization': `Bearer ${currentToken}` }
                 });
 
-                if (!response.ok) throw new Error('Search failed');
+                if (!response.ok) {
+                    let message = 'Search failed';
+                    try {
+                        const error = await response.json();
+                        message = error.detail || message;
+                    } catch {
+                        // ignore parsing errors
+                    }
+                    throw new Error(message);
+                }
 
                 const results = await response.json();
                 document.getElementById('searchLoading').classList.remove('active');
                 document.getElementById('processingInfo').classList.remove('active');
-                
                 renderSearchResults(results);
             } catch (error) {
-                showError(error.message);
                 document.getElementById('searchLoading').classList.remove('active');
                 document.getElementById('processingInfo').classList.remove('active');
+                showError(error.message);
             }
         }
 
@@ -954,26 +1004,30 @@
             const resultsDiv = document.getElementById('searchResults');
             
             if (results.length === 0) {
-                resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 2rem;">No results found. Try different search terms.</p>';
+                resultsDiv.innerHTML = `
+                    <div style="text-align: center; color: #555; padding: 2rem; background: #f8fafc; border-radius: 8px;">
+                        <p style="margin: 0 0 0.5rem; font-weight: 600;">No matches found.</p>
+                        <p style="margin: 0;">Try a broader query or upload more documents. You can also search for keywords, topics, or common phrases from your content.</p>
+                    </div>
+                `;
                 return;
             }
 
-            resultsDiv.innerHTML = results.slice(0, 10).map((result, idx) => `
-                <div class="result-item">
-                    <div class="result-document">
-                        ${idx + 1}. ${result.document_filename || 'Unknown Document'}
-                    </div>
-                    <div class="result-similarity">
-                        <div class="similarity-bar">
-                            <div class="similarity-fill" style="width: ${result.score * 100}%"></div>
+            resultsDiv.innerHTML = `
+                <div style="margin-bottom: 1rem; color: #334155; font-weight: 700;">Showing top ${Math.min(results.length, 10)} matches from your documents</div>
+                ${results.slice(0, 10).map((result, idx) => `
+                    <div class="result-item">
+                        <div class="result-document">${idx + 1}. ${result.document_filename || 'Unknown Document'}</div>
+                        <div class="result-similarity">
+                            <div class="similarity-bar">
+                                <div class="similarity-fill" style="width: ${Math.round(result.score * 100)}%"></div>
+                            </div>
+                            <span class="similarity-text">${(result.score * 100).toFixed(1)}%</span>
                         </div>
-                        <span class="similarity-text">${(result.score * 100).toFixed(1)}%</span>
+                        <div class="result-text">${result.text || 'No snippet available.'}</div>
                     </div>
-                    <div class="result-text">
-                        "${result.text}"
-                    </div>
-                </div>
-            `).join('');
+                `).join('')}
+            `;
         }
 
         // Messages

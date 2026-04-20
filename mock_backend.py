@@ -191,30 +191,21 @@ def documents_options():
 @app.route("/documents", methods=["POST"])
 def upload_document():
     """Upload a new document"""
-    print(f"DEBUG: Upload request received")
-    print(f"DEBUG: Headers: {dict(request.headers)}")
-    print(f"DEBUG: Files: {request.files.keys()}")
-    
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        print("DEBUG: No auth header")
         return jsonify({"detail": "Not authenticated"}), 401
     
     token = auth_header[7:]
     payload = verify_token(token)
     if not payload:
-        print("DEBUG: Invalid token")
         return jsonify({"detail": "Invalid token"}), 401
     
     if "file" not in request.files:
-        print("DEBUG: No file in request.files")
-        print(f"DEBUG: Available keys: {list(request.files.keys())}")
         return jsonify({"detail": "No file provided"}), 400
     
     file = request.files["file"]
-    print(f"DEBUG: File received: {file.filename}")
-    
-    if not file.filename.endswith(".pdf"):
+    filename = file.filename or ""
+    if not filename.lower().endswith(".pdf") and file.mimetype != "application/pdf":
         return jsonify({"detail": "Only PDF files allowed"}), 400
     
     # Create mock document
