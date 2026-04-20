@@ -1,13 +1,12 @@
 import html
+import logging
 import re
 from tempfile import NamedTemporaryFile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import UploadFile
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from config import DOCUMENT_PROCESSING_STALE_SECONDS
 from db import get_connection
@@ -25,8 +24,10 @@ MAJOR_SECTION_RE = re.compile(
     re.IGNORECASE,
 )
 LIST_MARKER_RE = re.compile(r"(?:^|\s)[a-zA-Z]\)")
-_docling_converter: DocumentConverter | None = None
+_docling_converter: Any | None = None
 _docling_warmed = False
+_torch_runtime_configured = False
+logger = logging.getLogger(__name__)
 DOCLING_WARMUP_PDF_BYTES = b"""%PDF-1.1
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
@@ -64,6 +65,30 @@ startxref
 408
 %%EOF
 """
+
+
+def configure_torch_runtime() -> None:
+    global _torch_runtime_configured
+
+    if _torch_runtime_configured:
+        return
+
+    import torch
+
+    cpu_capability_getter = getattr(torch._C, "_get_cpu_capability", None)
+    cpu_capability = cpu_capability_getter() if callable(cpu_capability_getter) else "unknown"
+
+    if cpu_capability == "NO AVX" and torch.backends.mkldnn.enabled:
+        torch.backends.mkldnn.enabled = False
+        logger.warning(
+            "Disabled torch MKLDNN backend for Docling because the host CPU capability "
+            "is %s",
+            cpu_capability,
+        )
+
+    _torch_runtime_configured = True
+
+
 def validate_pdf(file: UploadFile) -> None:
     is_pdf_content_type = file.content_type == "application/pdf"
     has_pdf_extension = file.filename is not None and file.filename.lower().endswith(".pdf")
@@ -184,11 +209,13 @@ def extract_pdf_text(object_key: str) -> str:
         document_path.unlink(missing_ok=True)
 
 
-def get_docling_converter() -> DocumentConverter:
+def get_docling_converter() -> Any:
     global _docling_converter
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    if DocumentConverter is None:
-        raise RuntimeError("Docling is not installed")
+    configure_torch_runtime()
 
     if _docling_converter is None:
         pipeline_options = PdfPipelineOptions()
@@ -219,7 +246,16 @@ def warm_docling_pipeline() -> None:
         warmup_path = Path(temp_file.name)
 
     try:
-        converter.convert(str(warmup_path))
+        try:
+            converter.convert(str(warmup_path))
+        except Exception as exc:
+            if "could not create a primitive" not in str(exc).lower():
+                raise
+            logger.warning(
+                "Docling warmup hit a non-fatal inference error after asset load; "
+                "continuing with warmed converter",
+                exc_info=True,
+            )
         _docling_warmed = True
     finally:
         warmup_path.unlink(missing_ok=True)
