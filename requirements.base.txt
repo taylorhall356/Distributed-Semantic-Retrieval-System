@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+psycopg
+bcrypt
+PyJWT
+celery
+qdrant-client
+minio
+redis

@@ -1,0 +1,12 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+
+COPY requirements.loadtest.txt .
+RUN pip install --no-cache-dir -r requirements.loadtest.txt
+
+COPY load ./load
+
+ENTRYPOINT ["locust", "-f", "load/locustfile.py", "--host", "http://nginx"]
