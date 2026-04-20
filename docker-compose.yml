@@ -318,6 +318,8 @@ services:
 
   worker5:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -335,6 +337,8 @@ services:
 
   worker6:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -352,6 +356,8 @@ services:
 
   worker7:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -369,6 +375,8 @@ services:
 
   worker8:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -386,6 +394,8 @@ services:
 
   worker9:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -403,6 +413,8 @@ services:
 
   worker10:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c

@@ -137,7 +137,8 @@ curl -G http://localhost:8080/search \
 
 - `nginx` exposes the public API on port `8080`
 - `api` through `api5` run the FastAPI application behind nginx
-- `worker` through `worker10` process PDF parsing tasks
+- `worker` through `worker4` process PDF parsing tasks by default
+- `worker5` through `worker10` are available behind the optional `scale` compose profile
 - `embedding-worker` and `embedding-worker2` handle embedding/indexing tasks
 - `embedding-service`, `embedding-service2`, and `embedding-service3` serve embeddings behind `embedding-router`
 

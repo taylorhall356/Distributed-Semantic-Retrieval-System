@@ -45,6 +45,15 @@ CELERY_BROKER_URL = os.getenv(
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "document_chunks")
+QDRANT_QUERY_TIMEOUT_SECONDS = int(
+    os.getenv("QDRANT_QUERY_TIMEOUT_SECONDS", "10")
+)
+QDRANT_QUERY_MAX_RETRIES = int(
+    os.getenv("QDRANT_QUERY_MAX_RETRIES", "2")
+)
+QDRANT_QUERY_RETRY_DELAY_SECONDS = float(
+    os.getenv("QDRANT_QUERY_RETRY_DELAY_SECONDS", "0.2")
+)
 
 EMBEDDING_MODEL_NAME = os.getenv(
     "EMBEDDING_MODEL_NAME",

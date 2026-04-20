@@ -35,11 +35,7 @@ stream
 BT
 /F1 16 Tf
 72 720 Td
-(Software architecture affects scalability and reliability.) Tj
-0 -28 Td
-(Distributed systems use APIs, queues, storage, and search services.) Tj
-0 -28 Td
-(Load testing helps identify latency, throughput, and bottlenecks.) Tj
+(Software architecture affects scalability reliability observability deployment behavior and query performance across distributed retrieval systems under sustained production traffic.) Tj
 ET
 endstream
 endobj
