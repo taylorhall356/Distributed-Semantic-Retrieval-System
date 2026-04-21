@@ -5,6 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Semantic Document Retrieval System</title>
     <style>
+        :root {
+            --bg: #0b0f0d;
+            --bg-accent: #121917;
+            --panel: #141b19;
+            --panel-muted: #101614;
+            --border: #26332e;
+            --border-strong: #355247;
+            --text: #edf4f0;
+            --text-muted: #a4b4ac;
+            --text-soft: #7f9388;
+            --accent: #38c172;
+            --accent-strong: #1f9d55;
+            --accent-faint: rgba(56, 193, 114, 0.12);
+            --danger-bg: #2a1316;
+            --danger-text: #ffb4bc;
+            --success-bg: #11281d;
+            --success-text: #91f2bb;
+            --warning-bg: #2b2613;
+            --warning-text: #f1d97a;
+            --shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,28 +34,39 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(56, 193, 114, 0.16), transparent 32%),
+                radial-gradient(circle at top right, rgba(24, 36, 32, 0.9), transparent 28%),
+                linear-gradient(180deg, #0b0f0d 0%, #121917 55%, #0b0f0d 100%);
+            color: var(--text);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
+        *:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
         .navbar {
-            background: rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
+            background: rgba(10, 14, 13, 0.88);
+            backdrop-filter: blur(18px);
+            padding: 1rem 2rem 1.1rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            color: var(--text);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+            border-bottom: 1px solid rgba(53, 82, 71, 0.55);
         }
 
         .navbar-title {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            letter-spacing: -0.5px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
 
         .navbar-user {
@@ -44,21 +77,22 @@
 
         .navbar-user span {
             font-size: 0.9rem;
-            opacity: 0.9;
+            color: var(--text-muted);
         }
 
         .btn-logout {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-strong);
+            color: var(--text);
             padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s;
         }
 
         .btn-logout:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: var(--accent-faint);
+            border-color: var(--accent);
         }
 
         .container {
@@ -78,19 +112,26 @@
         }
 
         .auth-box {
-            background: white;
+            background: linear-gradient(180deg, rgba(20, 27, 25, 0.96), rgba(15, 21, 19, 0.98));
             padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
             width: 100%;
-            max-width: 400px;
+            max-width: 440px;
         }
 
         .auth-box h2 {
-            margin-bottom: 1.5rem;
-            color: #333;
-            text-align: center;
+            margin-bottom: 0.7rem;
+            color: var(--text);
+            text-align: left;
             font-size: 1.8rem;
+        }
+
+        .auth-subtitle {
+            color: var(--text-muted);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
         }
 
         .form-group {
@@ -100,30 +141,42 @@
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #555;
-            font-weight: 500;
-            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.02em;
         }
 
-        .form-group input {
+        .form-group input,
+        .search-input-group textarea {
             width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
+            padding: 0.95rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
             font-size: 1rem;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+            background: var(--panel-muted);
+            color: var(--text);
+            font-family: inherit;
         }
 
-        .form-group input:focus {
+        .form-group input::placeholder,
+        .search-input-group textarea::placeholder {
+            color: var(--text-soft);
+        }
+
+        .form-group input:focus,
+        .search-input-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(56, 193, 114, 0.16);
         }
 
         .btn {
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.85rem 1rem;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
@@ -131,13 +184,14 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+            color: #04110a;
+            box-shadow: 0 14px 32px rgba(31, 157, 85, 0.25);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 16px 34px rgba(31, 157, 85, 0.34);
         }
 
         .btn-primary:active {
@@ -147,98 +201,115 @@
         .toggle-auth {
             text-align: center;
             margin-top: 1rem;
-            color: #666;
+            color: var(--text-muted);
             font-size: 0.9rem;
         }
 
         .toggle-auth a {
-            color: #667eea;
+            color: var(--accent);
             cursor: pointer;
             font-weight: 600;
             text-decoration: none;
         }
 
         .error-message {
-            background: #fee;
-            color: #c33;
+            background: var(--danger-bg);
+            color: var(--danger-text);
             padding: 1rem;
-            border-radius: 6px;
+            border-radius: 10px;
             margin-bottom: 1rem;
             display: none;
+            border: 1px solid rgba(255, 95, 109, 0.26);
         }
 
         .success-message {
-            background: #efe;
-            color: #3c3;
+            background: var(--success-bg);
+            color: var(--success-text);
             padding: 1rem;
-            border-radius: 6px;
+            border-radius: 10px;
             margin-bottom: 1rem;
             display: none;
+            border: 1px solid rgba(56, 193, 114, 0.22);
         }
 
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 2fr;
+            grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
             gap: 2rem;
         }
 
-        .sidebar {
-            background: white;
+        .sidebar,
+        .main-content {
+            background: linear-gradient(180deg, rgba(20, 27, 25, 0.96), rgba(15, 21, 19, 0.98));
             padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .sidebar {
             height: fit-content;
         }
 
         .main-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            min-width: 0;
         }
 
+        .main-content h2,
         .upload-section h3,
         .documents-section h3,
         .search-section h2 {
-            color: #333;
-            margin-bottom: 1.5rem;
+            color: var(--text);
+            margin-bottom: 1.2rem;
             font-size: 1.2rem;
         }
 
         .upload-area {
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            padding: 2rem;
+            border: 1px dashed var(--border-strong);
+            border-radius: 14px;
+            padding: 2.4rem 1.5rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
-            background: #f8f9ff;
+            background: linear-gradient(180deg, rgba(19, 28, 25, 0.9), rgba(15, 21, 19, 0.95));
         }
 
         .upload-area:hover {
-            background: #f0f2ff;
-            border-color: #764ba2;
+            background: rgba(20, 31, 27, 0.98);
+            border-color: var(--accent);
         }
 
         .upload-area.dragover {
-            background: #e8ebff;
-            border-color: #764ba2;
+            background: rgba(20, 37, 29, 0.98);
+            border-color: var(--accent);
             transform: scale(1.02);
         }
 
         .upload-icon {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+            margin: 0 auto 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-strong);
+            color: var(--accent);
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: rgba(56, 193, 114, 0.08);
         }
 
         .upload-text {
-            color: #666;
+            color: var(--text);
             font-size: 0.95rem;
             margin: 0.5rem 0;
         }
 
         .upload-subtext {
-            color: #999;
+            color: var(--text-soft);
             font-size: 0.85rem;
         }
 
@@ -253,34 +324,35 @@
         }
 
         .document-item {
-            background: #f8f9fa;
+            background: rgba(255, 255, 255, 0.02);
             padding: 1rem;
-            border-radius: 6px;
+            border-radius: 12px;
             margin-bottom: 0.8rem;
             cursor: pointer;
             transition: all 0.3s;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid var(--border-strong);
+            border: 1px solid rgba(255, 255, 255, 0.03);
         }
 
         .document-item:hover {
-            background: #f0f2ff;
+            background: rgba(255, 255, 255, 0.04);
             transform: translateX(4px);
         }
 
         .document-item.active {
-            background: #e8ebff;
-            border-left-color: #764ba2;
+            background: rgba(56, 193, 114, 0.09);
+            border-left-color: var(--accent);
         }
 
         .document-name {
             font-weight: 600;
-            color: #333;
+            color: var(--text);
             margin-bottom: 0.3rem;
         }
 
         .document-status {
             font-size: 0.85rem;
-            color: #999;
+            color: var(--text-soft);
         }
 
         .status-badge {
@@ -293,52 +365,52 @@
         }
 
         .status-processing {
-            background: #ffd700;
-            color: #333;
+            background: rgba(241, 217, 122, 0.16);
+            color: var(--warning-text);
         }
 
         .status-ready {
-            background: #4caf50;
-            color: white;
+            background: rgba(56, 193, 114, 0.14);
+            color: var(--success-text);
         }
 
         .status-failed {
-            background: #f44336;
-            color: white;
+            background: rgba(255, 95, 109, 0.14);
+            color: var(--danger-text);
         }
 
         .search-section {
-            margin-top: 2rem;
+            margin-top: 1rem;
+        }
+
+        .section-intro {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            line-height: 1.6;
         }
 
         .search-input-group {
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .search-input-group textarea {
-            flex: 1;
-            padding: 1rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.95rem;
             resize: vertical;
-            min-height: 100px;
-            transition: border-color 0.3s;
-        }
-
-        .search-input-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
+            min-height: 120px;
         }
 
         .btn-search {
-            padding: 0.75rem 1.5rem;
+            padding: 0.85rem 1.5rem;
             align-self: flex-start;
             min-width: 220px;
+        }
+
+        .helper-text {
+            font-size: 0.92rem;
+            color: var(--text-soft);
+            margin-bottom: 1rem;
         }
 
         .search-results {
@@ -346,16 +418,17 @@
         }
 
         .result-item {
-            background: #f8f9fa;
+            background: rgba(255, 255, 255, 0.02);
             padding: 1.5rem;
-            border-radius: 8px;
+            border-radius: 14px;
             margin-bottom: 1rem;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid var(--accent);
+            border: 1px solid rgba(255, 255, 255, 0.03);
         }
 
         .result-document {
             font-weight: 600;
-            color: #333;
+            color: var(--text);
             margin-bottom: 0.5rem;
         }
 
@@ -369,28 +442,28 @@
         .similarity-bar {
             flex: 1;
             height: 6px;
-            background: #e0e0e0;
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 3px;
             overflow: hidden;
         }
 
         .similarity-fill {
             height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, var(--accent) 0%, #69d89a 100%);
             transition: width 0.5s ease-out;
         }
 
         .similarity-text {
             font-weight: 600;
-            color: #667eea;
+            color: var(--accent);
             min-width: 60px;
             text-align: right;
         }
 
         .result-text {
-            color: #555;
-            font-size: 0.9rem;
-            line-height: 1.5;
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            line-height: 1.7;
             margin-top: 0.8rem;
         }
 
@@ -405,8 +478,8 @@
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border: 4px solid rgba(255, 255, 255, 0.12);
+            border-top: 4px solid var(--accent);
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -420,17 +493,18 @@
         }
 
         .loading-text {
-            color: #666;
+            color: var(--text-muted);
             font-size: 1rem;
         }
 
         .processing-info {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--warning-bg);
+            color: var(--warning-text);
             padding: 1rem;
-            border-radius: 6px;
+            border-radius: 12px;
             margin-top: 1rem;
             display: none;
+            border: 1px solid rgba(241, 217, 122, 0.18);
         }
 
         .processing-info.active {
@@ -443,10 +517,98 @@
 
         .processor-count {
             font-weight: 600;
-            color: #667eea;
+            color: var(--accent);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab {
+            padding: 0.9rem 1.25rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-soft);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #04110a;
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .info-panel {
+            background: rgba(56, 193, 114, 0.08);
+            border: 1px solid rgba(56, 193, 114, 0.16);
+            padding: 1rem;
+            border-radius: 14px;
+            margin-bottom: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        .info-panel strong {
+            color: var(--text);
+        }
+
+        .empty-state,
+        .document-info-empty {
+            color: var(--text-soft);
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .document-info-empty {
+            padding: 2rem;
+        }
+
+        .detail-card {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1.5rem;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .detail-card p {
+            color: var(--text-muted);
+        }
+
+        .detail-card strong {
+            color: var(--text);
+        }
+
+        .detail-card code {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            color: var(--text-muted);
         }
 
         @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem 1.25rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.8rem;
+            }
+
             .dashboard {
                 grid-template-columns: 1fr;
             }
@@ -459,47 +621,9 @@
                 order: 1;
             }
 
-            .search-input-group {
-                flex-direction: column;
-            }
-
             .btn-search {
                 align-self: stretch;
             }
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 0;
-            border-bottom: 2px solid #e0e0e0;
-            margin-bottom: 1.5rem;
-        }
-
-        .tab {
-            padding: 1rem 1.5rem;
-            cursor: pointer;
-            font-weight: 600;
-            color: #999;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
-            transition: all 0.3s;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
         }
     </style>
 </head>
@@ -508,6 +632,7 @@
     <div id="authScreen" class="auth-container">
         <div class="auth-box">
             <h2 id="authTitle">Sign Up</h2>
+            <p class="auth-subtitle">Create an account to upload PDFs, track processing, and search your document collection.</p>
             <div id="errorMessage" class="error-message"></div>
             <form id="authForm">
                 <div class="form-group">
@@ -529,7 +654,7 @@
     <!-- Dashboard Screen -->
     <div id="dashboardScreen" class="hidden">
         <div class="navbar">
-            <div class="navbar-title">📚 Semantic Document Retrieval</div>
+            <div class="navbar-title">Semantic Document Retrieval</div>
             <div class="navbar-user">
                 <span>Welcome, <strong id="currentUsername"></strong></span>
                 <button class="btn-logout" onclick="logout()">Logout</button>
@@ -538,8 +663,8 @@
 
         <div class="container">
             <div class="tabs">
-                <div class="tab active" onclick="switchTab('upload', this)">📤 Upload</div>
-                <div class="tab" onclick="switchTab('search', this)">🔍 Search</div>
+                <div class="tab active" onclick="switchTab('upload', this)">Upload</div>
+                <div class="tab" onclick="switchTab('search', this)">Search</div>
             </div>
 
             <!-- Upload Tab -->
@@ -548,9 +673,9 @@
                     <!-- Sidebar -->
                     <div class="sidebar">
                         <div class="upload-section">
-                            <h3>📄 Upload Document</h3>
+                            <h3>Upload Document</h3>
                             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-                                <div class="upload-icon">📁</div>
+                                <div class="upload-icon">PDF</div>
                                 <div class="upload-text">Click to upload or drag and drop</div>
                                 <div class="upload-subtext">PDF files up to 50MB</div>
                             </div>
@@ -559,15 +684,12 @@
                                 <div class="spinner"></div>
                                 <div class="loading-text">Uploading and processing...</div>
                             </div>
-                            <div style="margin-top: 1rem; text-align: center;">
-                                <button style="padding: 0.5rem 1rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;" onclick="testUpload()">Test Upload (Debug)</button>
-                            </div>
                         </div>
 
                         <div class="documents-section">
-                            <h3>📑 Your Documents</h3>
+                            <h3>Your Documents</h3>
                             <div class="documents-list" id="documentsList">
-                                <div style="color: #999; text-align: center; padding: 1rem;">No documents yet</div>
+                                <div class="empty-state">No documents yet</div>
                             </div>
                         </div>
                     </div>
@@ -575,7 +697,7 @@
                     <!-- Main Content -->
                     <div class="main-content">
                         <h2>Document Information</h2>
-                        <div id="documentInfo" style="color: #999; text-align: center; padding: 2rem;">
+                        <div id="documentInfo" class="document-info-empty">
                             Select a document to view details
                         </div>
                     </div>
@@ -585,9 +707,9 @@
             <!-- Search Tab -->
             <div id="searchTab" class="tab-content">
                 <div class="search-section">
-                    <h2>🔍 Semantic Text Search</h2>
-                    <p style="color: #666; margin-bottom: 1rem;">Search across your uploaded documents using natural language. Only documents marked <strong>ready</strong> will be included in the search.</p>
-                    <div style="background: #eef3ff; border: 1px solid #d7e1ff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; color: #334155;">
+                    <h2>Semantic Search</h2>
+                    <p class="section-intro">Search across your uploaded documents using natural language. Only documents marked <strong>ready</strong> will be included in the search.</p>
+                    <div class="info-panel">
                         <p style="margin: 0 0 0.5rem;"><strong>How this works:</strong> Enter a question or phrase and the app returns the most relevant passages from your documents.</p>
                         <p style="margin: 0; font-size: 0.95rem;">Tip: use clear, descriptive queries like <em>"project scope"</em> or <em>"deployment instructions"</em>.</p>
                     </div>
@@ -596,10 +718,10 @@
                         <textarea id="searchQuery" placeholder="Enter text to search... e.g. 'What are the installation steps?'" required></textarea>
                         <button class="btn btn-primary btn-search" onclick="performSearch()">Search documents</button>
                     </div>
-                    <div style="font-size: 0.92rem; color: #64748b; margin-bottom: 1rem;">Press <strong>Ctrl+Enter</strong> to run the search quickly.</div>
+                    <div class="helper-text">Press <strong>Ctrl+Enter</strong> to run the search quickly.</div>
 
                     <div id="processingInfo" class="processing-info">
-                        <p>⏳ Preparing your search results...</p>
+                        <p>Preparing your search results...</p>
                         <p>Documents available to search: <span class="processor-count" id="docCount">0</span></p>
                     </div>
 
@@ -822,7 +944,7 @@
             const list = document.getElementById('documentsList');
             
             if (documents.length === 0) {
-                list.innerHTML = '<div style="color: #999; text-align: center; padding: 1rem;">No documents yet</div>';
+                list.innerHTML = '<div class="empty-state">No documents yet</div>';
                 return;
             }
 
@@ -846,21 +968,21 @@
             
             const info = document.getElementById('documentInfo');
             if (!doc) {
-                info.innerHTML = '<div style="color: #999; text-align: center; padding: 2rem;">Document details are not available yet.</div>';
+                info.innerHTML = '<div class="document-info-empty">Document details are not available yet.</div>';
                 return;
             }
 
             info.innerHTML = `
                 <div style="text-align: left;">
-                    <h3 style="margin-bottom: 1rem; color: #333;">${doc.filename}</h3>
-                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 6px;">
+                    <h3 style="margin-bottom: 1rem; color: var(--text);">${doc.filename}</h3>
+                    <div class="detail-card">
                         <p><strong>Status:</strong> <span class="status-badge status-${doc.status}">${doc.status}</span></p>
                         <p style="margin-top: 0.8rem;"><strong>Uploaded:</strong> ${new Date(doc.created_at).toLocaleString()}</p>
-                        <p style="margin-top: 0.8rem;"><strong>Document ID:</strong> <code style="background: white; padding: 0.25rem 0.5rem; border-radius: 3px; color: #666;">${doc.id}</code></p>
-                        <p style="margin-top: 1.5rem; color: #666; font-size: 0.9rem;">
+                        <p style="margin-top: 0.8rem;"><strong>Document ID:</strong> <code>${doc.id}</code></p>
+                        <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: 0.9rem;">
                             ${doc.status === 'processing' 
-                                ? '⏳ This document is being processed. You\'ll be able to search it once processing is complete.' 
-                                : '✅ This document is ready to be searched. Go to the Search tab to find similar content.'}
+                                ? 'This document is being processed. You will be able to search it once processing is complete.' 
+                                : 'This document is ready to search. Open the Search tab to find related content.'}
                         </p>
                     </div>
                 </div>
@@ -873,15 +995,6 @@
             if (file) {
                 uploadFile(file);
             }
-        }
-
-        async function testUpload() {
-            console.log("Test upload button clicked");
-            // Create a minimal PDF blob
-            const pdfContent = new Blob(["%PDF-1.4\nTest document"], { type: "application/pdf" });
-            const file = new File([pdfContent], "test-upload.pdf", { type: "application/pdf" });
-            console.log("Created test file:", file.name, file.size, file.type);
-            await uploadFile(file);
         }
 
         async function uploadFile(file) {
@@ -992,7 +1105,7 @@
             
             if (results.length === 0) {
                 resultsDiv.innerHTML = `
-                    <div style="text-align: center; color: #555; padding: 2rem; background: #f8fafc; border-radius: 8px;">
+                    <div style="text-align: center; color: var(--text-muted); padding: 2rem; background: rgba(255, 255, 255, 0.02); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.04);">
                         <p style="margin: 0 0 0.5rem; font-weight: 600;">No matches found.</p>
                         <p style="margin: 0;">Try a broader query or upload more documents. You can also search for keywords, topics, or common phrases from your content.</p>
                     </div>
@@ -1001,7 +1114,7 @@
             }
 
             resultsDiv.innerHTML = `
-                <div style="margin-bottom: 1rem; color: #334155; font-weight: 700;">Showing top ${Math.min(results.length, 10)} matches from your documents</div>
+                <div style="margin-bottom: 1rem; color: var(--text); font-weight: 700;">Showing top ${Math.min(results.length, 10)} matches from your documents</div>
                 ${results.slice(0, 10).map((result, idx) => `
                     <div class="result-item">
                         <div class="result-document">${idx + 1}. ${escapeHtml(result.filename || result.document_filename || 'Unknown Document')}</div>
