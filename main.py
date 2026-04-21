@@ -28,7 +28,11 @@ from schemas import (
     SignupRequest,
     SignupResponse,
 )
-from semantic_search import is_qdrant_ready, search_document_chunks
+from semantic_search import (
+    SearchBackendUnavailableError,
+    is_qdrant_ready,
+    search_document_chunks,
+)
 from storage import save_document_file
 
 
@@ -250,6 +254,11 @@ def search_documents(
             query=q,
         )
     except EmbeddingServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except SearchBackendUnavailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),

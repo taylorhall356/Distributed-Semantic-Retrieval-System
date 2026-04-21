@@ -64,6 +64,7 @@ x-app-environment: &app-environment
   QUERY_EMBEDDING_CACHE_TTL_SECONDS: ${QUERY_EMBEDDING_CACHE_TTL_SECONDS:-3600}
   QUERY_EMBEDDING_CACHE_LOGGING: ${QUERY_EMBEDDING_CACHE_LOGGING:-true}
   DOCUMENT_PROCESSING_STALE_SECONDS: ${DOCUMENT_PROCESSING_STALE_SECONDS:-900}
+  PDF_EXTRACTOR_BACKEND: ${PDF_EXTRACTOR_BACKEND:-pymupdf_blocks}
   HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
   TRANSFORMERS_OFFLINE: ${TRANSFORMERS_OFFLINE:-0}
 
@@ -317,6 +318,8 @@ services:
 
   worker5:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -334,6 +337,8 @@ services:
 
   worker6:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -351,6 +356,8 @@ services:
 
   worker7:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -368,6 +375,8 @@ services:
 
   worker8:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -385,6 +394,8 @@ services:
 
   worker9:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c
@@ -402,6 +413,8 @@ services:
 
   worker10:
     <<: *parse-worker-service
+    profiles:
+      - scale
     command:
       - sh
       - -c

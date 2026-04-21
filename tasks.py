@@ -4,6 +4,7 @@ import os
 from celery.signals import worker_process_init
 
 from celery_app import celery_app
+from config import PDF_EXTRACTOR_BACKEND
 from documents import embed_document, parse_document_and_enqueue_embedding, warm_docling_pipeline
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,14 @@ logger = logging.getLogger(__name__)
 @worker_process_init.connect
 def warm_parsing_worker_process(**_: object) -> None:
     if os.getenv("WORKER_ROLE", "").strip().lower() != "parsing":
+        return
+
+    if PDF_EXTRACTOR_BACKEND != "docling":
+        logger.info(
+            "Skipping Docling warmup for parsing worker process because "
+            "PDF_EXTRACTOR_BACKEND=%s",
+            PDF_EXTRACTOR_BACKEND,
+        )
         return
 
     logger.info("Warming Docling pipeline for parsing worker process")

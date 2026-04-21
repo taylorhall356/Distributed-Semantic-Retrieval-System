@@ -1,41 +1,116 @@
+import logging
+import time
+
+import httpcore
+import httpx
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 from config import (
     EMBEDDING_VECTOR_SIZE,
     QDRANT_COLLECTION,
     QDRANT_HOST,
     QDRANT_PORT,
+    QDRANT_QUERY_MAX_RETRIES,
+    QDRANT_QUERY_RETRY_DELAY_SECONDS,
+    QDRANT_QUERY_TIMEOUT_SECONDS,
 )
 from embedding_client import embed_text, embed_texts
 from query_embedding_cache import get_cached_query_embedding, set_cached_query_embedding
 
 _qdrant_client: QdrantClient | None = None
 UPSERT_BATCH_SIZE = 32
+logger = logging.getLogger(__name__)
+SEARCH_RESULT_PAYLOAD_FIELDS = [
+    "document_id",
+    "filename",
+    "chunk_index",
+    "content",
+]
+
+
+class SearchBackendUnavailableError(RuntimeError):
+    pass
 
 
 def get_qdrant_client() -> QdrantClient:
     global _qdrant_client
 
     if _qdrant_client is None:
-        _qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        _qdrant_client = QdrantClient(
+            host=QDRANT_HOST,
+            port=QDRANT_PORT,
+            timeout=QDRANT_QUERY_TIMEOUT_SECONDS,
+        )
 
     return _qdrant_client
+
+
+def reset_qdrant_client() -> None:
+    global _qdrant_client
+    _qdrant_client = None
+
+
+def _is_retryable_qdrant_error(exc: Exception) -> bool:
+    return isinstance(
+        exc,
+        (
+            ResponseHandlingException,
+            httpx.RemoteProtocolError,
+            httpx.ReadTimeout,
+            httpcore.RemoteProtocolError,
+            httpcore.ReadTimeout,
+        ),
+    )
+
+
+def query_points_with_retry(**kwargs: object) -> qdrant_models.QueryResponse:
+    last_error: Exception | None = None
+
+    for attempt in range(1, QDRANT_QUERY_MAX_RETRIES + 1):
+        client = get_qdrant_client()
+        try:
+            return client.query_points(**kwargs)
+        except Exception as exc:
+            last_error = exc
+            if not _is_retryable_qdrant_error(exc) or attempt >= QDRANT_QUERY_MAX_RETRIES:
+                break
+
+            logger.warning(
+                "Retrying Qdrant query after transient error on attempt %s/%s: %s",
+                attempt,
+                QDRANT_QUERY_MAX_RETRIES,
+                exc,
+            )
+            reset_qdrant_client()
+            time.sleep(QDRANT_QUERY_RETRY_DELAY_SECONDS)
+
+    raise SearchBackendUnavailableError("Search backend temporarily unavailable") from last_error
 
 
 def ensure_qdrant_collection() -> None:
     client = get_qdrant_client()
 
     existing_collections = client.get_collections().collections
-    if any(collection.name == QDRANT_COLLECTION for collection in existing_collections):
-        return
+    if not any(collection.name == QDRANT_COLLECTION for collection in existing_collections):
+        client.create_collection(
+            collection_name=QDRANT_COLLECTION,
+            vectors_config=qdrant_models.VectorParams(
+                size=EMBEDDING_VECTOR_SIZE,
+                distance=qdrant_models.Distance.COSINE,
+            ),
+        )
 
-    client.create_collection(
+    ensure_qdrant_payload_indexes(client)
+
+
+def ensure_qdrant_payload_indexes(client: QdrantClient) -> None:
+    client.create_payload_index(
         collection_name=QDRANT_COLLECTION,
-        vectors_config=qdrant_models.VectorParams(
-            size=EMBEDDING_VECTOR_SIZE,
-            distance=qdrant_models.Distance.COSINE,
-        ),
+        field_name="user_id",
+        field_schema=qdrant_models.PayloadSchemaType.INTEGER,
+        wait=True,
     )
 
 
@@ -105,13 +180,12 @@ def delete_document_vectors(document_id: int, user_id: int) -> None:
 
 
 def search_document_chunks(user_id: int, query: str, limit: int = 5) -> list[dict[str, str | int | float]]:
-    client = get_qdrant_client()
     query_vector = get_cached_query_embedding(query)
     if query_vector is None:
         query_vector = embed_text(query)
         set_cached_query_embedding(query, query_vector)
 
-    response = client.query_points(
+    response = query_points_with_retry(
         collection_name=QDRANT_COLLECTION,
         query=query_vector,
         query_filter=qdrant_models.Filter(
@@ -123,7 +197,7 @@ def search_document_chunks(user_id: int, query: str, limit: int = 5) -> list[dic
             ]
         ),
         limit=limit,
-        with_payload=True,
+        with_payload=SEARCH_RESULT_PAYLOAD_FIELDS,
     )
 
     results = []
