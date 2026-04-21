@@ -22,6 +22,12 @@ from query_embedding_cache import get_cached_query_embedding, set_cached_query_e
 _qdrant_client: QdrantClient | None = None
 UPSERT_BATCH_SIZE = 32
 logger = logging.getLogger(__name__)
+SEARCH_RESULT_PAYLOAD_FIELDS = [
+    "document_id",
+    "filename",
+    "chunk_index",
+    "content",
+]
 
 
 class SearchBackendUnavailableError(RuntimeError):
@@ -87,15 +93,24 @@ def ensure_qdrant_collection() -> None:
     client = get_qdrant_client()
 
     existing_collections = client.get_collections().collections
-    if any(collection.name == QDRANT_COLLECTION for collection in existing_collections):
-        return
+    if not any(collection.name == QDRANT_COLLECTION for collection in existing_collections):
+        client.create_collection(
+            collection_name=QDRANT_COLLECTION,
+            vectors_config=qdrant_models.VectorParams(
+                size=EMBEDDING_VECTOR_SIZE,
+                distance=qdrant_models.Distance.COSINE,
+            ),
+        )
 
-    client.create_collection(
+    ensure_qdrant_payload_indexes(client)
+
+
+def ensure_qdrant_payload_indexes(client: QdrantClient) -> None:
+    client.create_payload_index(
         collection_name=QDRANT_COLLECTION,
-        vectors_config=qdrant_models.VectorParams(
-            size=EMBEDDING_VECTOR_SIZE,
-            distance=qdrant_models.Distance.COSINE,
-        ),
+        field_name="user_id",
+        field_schema=qdrant_models.PayloadSchemaType.INTEGER,
+        wait=True,
     )
 
 
@@ -182,7 +197,7 @@ def search_document_chunks(user_id: int, query: str, limit: int = 5) -> list[dic
             ]
         ),
         limit=limit,
-        with_payload=True,
+        with_payload=SEARCH_RESULT_PAYLOAD_FIELDS,
     )
 
     results = []
